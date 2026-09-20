@@ -40,6 +40,8 @@ const corPorCategoria: Record<CategoriaServico, string> = {
     delegacia_mulher: '#D81B60',
     hospital: '#43A047',
     upa: '#FB8C00',
+    CRAS: '#8E24AA',      // roxo
+    bombeiros: '#E53935', // vermelho
 };
 
 const labelPorCategoria: Record<CategoriaServico, string> = {
@@ -47,6 +49,8 @@ const labelPorCategoria: Record<CategoriaServico, string> = {
     delegacia_mulher: 'Delegacia da Mulher',
     hospital: 'Hospital',
     upa: 'UPA',
+    CRAS: 'CRAS',
+    bombeiros: 'Corpo de Bombeiros',
 };
 
 /**
@@ -107,7 +111,7 @@ async function calcularRota(
  * Monta a página HTML que será exibida dentro do WebView.
  *
  * O mapa é Leaflet.
- * Os mapas são OpenStreetMap.
+ * Os tiles são da CARTO (Voyager), com visual próximo do Google Maps.
  */
 function gerarHTMLMapa(
     localizacao: Coordenada | null,
@@ -205,6 +209,27 @@ body {
     font-weight: bold;
 }
 
+.leaflet-popup-content-wrapper {
+
+    border-radius: 12px;
+
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+
+    padding: 2px;
+}
+
+.leaflet-popup-tip {
+
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.leaflet-control-attribution {
+
+    font-size: 10px;
+
+    opacity: 0.7;
+}
+
 </style>
 
 </head>
@@ -234,23 +259,32 @@ const labels = ${labelsJSON};
  * Cria o mapa.
  *
  * A posição inicial é Rio Grande/RS.
+ * zoomControl desligado aqui para reposicionar
+ * o botão de zoom no canto inferior direito,
+ * como no Google Maps.
  */
-const mapa = L.map('map').setView(
+const mapa = L.map('map', {
+    zoomControl: false
+}).setView(
     [-32.10, -52.12],
     12
 );
 
+L.control.zoom({ position: 'bottomright' }).addTo(mapa);
+
 
 /*
- * OpenStreetMap
+ * Tiles da Esri (World Street Map) — visual claro,
+ * próximo do estilo do Google Maps, gratuito e
+ * sem necessidade de API Key.
  */
 L.tileLayer(
-    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
     {
         maxZoom: 19,
 
         attribution:
-            '&copy; OpenStreetMap contributors'
+            'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom'
     }
 ).addTo(mapa);
 
@@ -278,7 +312,8 @@ servicos.forEach(function(servico) {
 
 
     /*
-     * Cria um marcador circular.
+     * Cria um marcador em formato de "pin"
+     * (gota), como no Google Maps.
      */
     const icone =
         L.divIcon({
@@ -286,27 +321,25 @@ servicos.forEach(function(servico) {
             className: '',
 
             html:
-                '<div style="' +
+                '<div style="width:30px;height:40px;position:relative;">' +
 
-                'background:' +
+                '<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">' +
+
+                '<path d="M15 0C6.7 0 0 6.7 0 15c0 11.2 15 25 15 25s15-13.8 15-25C30 6.7 23.3 0 15 0z" fill="' +
                 cor +
-                ';' +
+                '"/>' +
 
-                'width:22px;' +
+                '<circle cx="15" cy="15" r="6" fill="white"/>' +
 
-                'height:22px;' +
+                '</svg>' +
 
-                'border-radius:50%;' +
+                '</div>',
 
-                'border:3px solid white;' +
+            iconSize: [30, 40],
 
-                'box-shadow:0 1px 5px #555;' +
+            iconAnchor: [15, 40],
 
-                '"></div>',
-
-            iconSize: [22, 22],
-
-            iconAnchor: [11, 11]
+            popupAnchor: [0, -36]
         });
 
 
@@ -379,7 +412,8 @@ function pedirRota(id) {
 
 
 /*
- * Mostra a localização da usuária.
+ * Mostra a localização da usuária como uma
+ * bolinha azul pulsante, estilo Google Maps.
  */
 if (localizacaoAtual) {
 
@@ -389,25 +423,17 @@ if (localizacaoAtual) {
             className: '',
 
             html:
-                '<div style="' +
+                '<div style="position:relative;width:22px;height:22px;">' +
 
-                'background:#8810b7;' +
+                '<div style="position:absolute;width:22px;height:22px;background:rgba(66,133,244,0.25);border-radius:50%;"></div>' +
 
-                'width:18px;' +
+                '<div style="position:absolute;top:5px;left:5px;width:12px;height:12px;background:#4285F4;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>' +
 
-                'height:18px;' +
+                '</div>',
 
-                'border-radius:50%;' +
+            iconSize: [22, 22],
 
-                'border:4px solid white;' +
-
-                'box-shadow:0 1px 5px #555;' +
-
-                '"></div>',
-
-            iconSize: [26, 26],
-
-            iconAnchor: [13, 13]
+            iconAnchor: [11, 11]
         });
 
 
@@ -438,7 +464,8 @@ if (localizacaoAtual) {
 
 
 /*
- * Desenha a rota recebida do OSRM.
+ * Desenha a rota recebida do OSRM,
+ * em azul, estilo Google Maps.
  */
 if (
     rotaAtual &&
@@ -461,7 +488,15 @@ if (
         L.polyline(
             pontos,
             {
-                weight: 5
+                color: '#4285F4',
+
+                weight: 6,
+
+                opacity: 0.9,
+
+                lineCap: 'round',
+
+                lineJoin: 'round'
             }
         ).addTo(mapa);
 
