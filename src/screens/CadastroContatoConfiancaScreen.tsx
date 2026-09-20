@@ -1,22 +1,8 @@
 // src/screens/CadastroContatoConfiancaScreen.tsx
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    KeyboardAvoidingView,
-    Platform,
-    ActivityIndicator,
-    Alert,
-} from 'react-native';
-import {
-    collection,
-    addDoc,
-    serverTimestamp,
-} from 'firebase/firestore';
+import {   View,Text,TextInput,StyleSheet,TouchableOpacity,ScrollView,KeyboardAvoidingView,Platform,ActivityIndicator,Alert} from 'react-native';
+import {collection, addDoc,serverTimestamp} from 'firebase/firestore';
+import { validarTelefone } from '../utils/validarTelefone';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../services/firebaseConfig';
 import { colors, spacing, radius, typography } from '../theme/colors';
@@ -61,11 +47,9 @@ export default function CadastroContatoConfiancaScreen({ navigation }: any) {
             novosErros.nome = 'Informe o nome do contato.';
         }
 
-        const digitosTelefone = telefone.replace(/\D/g, '');
-        if (!digitosTelefone) {
-            novosErros.telefone = 'Informe o telefone do contato.';
-        } else if (digitosTelefone.length < 10) {
-            novosErros.telefone = 'Telefone incompleto.';
+        const resultadoTelefone = validarTelefone(telefone);
+        if (!resultadoTelefone.valido) {
+            novosErros.telefone = resultadoTelefone.mensagem;
         }
 
         if (!parentesco) {

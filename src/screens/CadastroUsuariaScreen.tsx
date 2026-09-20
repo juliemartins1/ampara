@@ -15,6 +15,7 @@ import {
     FlatList,
 } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { validarTelefone } from '../utils/validarTelefone';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../services/firebaseConfig';
 import { colors, spacing, radius, typography } from '../theme/colors';
@@ -74,13 +75,10 @@ export default function CadastroUsuariaScreen({ navigation }: any) {
             novosErros.email = 'Informe um e-mail válido.';
         }
 
-        const digitosTelefone = telefone.replace(/\D/g, '');
-        if (!digitosTelefone) {
-            novosErros.telefone = 'Informe seu telefone.';
-        } else if (digitosTelefone.length < 10) {
-            novosErros.telefone = 'Telefone incompleto.';
+        const resultadoTelefone = validarTelefone(telefone);
+        if (!resultadoTelefone.valido) {
+            novosErros.telefone = resultadoTelefone.mensagem;
         }
-
         if (!bairro.trim()) {
             novosErros.bairro = 'Selecione seu bairro.';
         }
