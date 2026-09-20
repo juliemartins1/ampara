@@ -7,6 +7,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import InformacoesScreen from './src/screens/InformacoesScreen';
 import ArtigoDetalheScreen from './src/screens/ArtigoDetalheScreen';
+import MapaServicosScreen from './src/screens/MapaServicosScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -43,6 +44,11 @@ export default function App() {
           name="ArtigoDetalhe"
           component={ArtigoDetalheScreen}
           options={{ title: '' }}
+        />
+        <Stack.Screen
+          name="MapaServicos"
+          component={MapaServicosScreen}
+          options={{ title: 'Delegacias e Serviços' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

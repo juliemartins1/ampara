@@ -174,7 +174,7 @@ export default function HomeScreen({ navigation }: any) {
             <CardAcao
                 titulo="Delegacias e serviços próximos"
                 subtitulo="Encontre pontos de atendimento especializado perto de você"
-                onPress={funcionalidadeEmDesenvolvimento}
+                onPress={() => navigation.navigate('MapaServicos')}
             />
         </ScrollView>
     );
