@@ -98,10 +98,9 @@ export default function CadastroContatoConfiancaScreen({ navigation }: any) {
         }
 
         try {
-            await addDoc(collection(db, 'contatosConfianca'), {
-                usuariaId,
+            await addDoc(collection(db, 'usuarias', usuariaId, 'contatosConfianca'), {
                 nome: nome.trim(),
-                telefone: `55${telefone.replace(/\D/g, '')}`, 
+                telefone: `55${telefone.replace(/\D/g, '')}`,
                 parentesco,
                 createdAt: serverTimestamp(),
             });

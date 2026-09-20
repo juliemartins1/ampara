@@ -2,26 +2,26 @@ export const colors = {
     //cores principais
     primary: '#8810b7',
     primaryDark: '#72268b',
+    primaryDeep: '#3d1450', // NOVO: roxo bem escuro, pra fundos de cartão tipo o mockup
     primaryLight: '#8d51a3',
     primarySoft: '#F1E4F5',
-//cor de emergencia
+    //cor de emergencia
     emergency: '#D64550',
-//neutros
+    //neutros
     background: '#FBF8FC',
     surface: '#FFFFFF',
     border: '#e3d3e9',
     textPrimary: '#2e2033',
     textSecondary: '#6e5c76',
     placeholder: '#a796ad',
-//feedback colors
+    //feedback colors
     sucess: '#4c9a6b',
     error: '#c0392b',
     warning: '#d19a2c',
 
-    white: '#FFFFFF',   
-    black: '#000000',  
+    white: '#FFFFFF',
+    black: '#000000',
 };
-
 export const spacing = {
     xs: 4,
     sm: 8,

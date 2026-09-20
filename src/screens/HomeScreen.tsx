@@ -9,49 +9,74 @@ import {
     Linking,
     Alert,
 } from 'react-native';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+import { Ionicons } from '@expo/vector-icons';
 import { auth, db } from '../services/firebaseConfig';
 import { colors, spacing, radius, typography } from '../theme/colors';
+
+interface ContatoConfianca {
+    id: string;
+    nome: string;
+}
 
 interface AcaoRapidaProps {
     titulo: string;
     subtitulo: string;
+    icone: keyof typeof Ionicons.glyphMap;
     onPress: () => void;
     destaque?: boolean;
 }
 
 // Card reutilizável para os módulos da tela inicial
-function CardAcao({ titulo, subtitulo, onPress, destaque }: AcaoRapidaProps) {
+function CardAcao({ titulo, subtitulo, icone, onPress, destaque }: AcaoRapidaProps) {
     return (
         <TouchableOpacity
             style={[styles.card, destaque && styles.cardDestaque]}
             onPress={onPress}
             activeOpacity={0.85}
         >
-            <Text
-                style={[styles.cardTitulo, destaque && styles.cardTituloDestaque]}
+            <View
+                style={[
+                    styles.cardIconeContainer,
+                    destaque && styles.cardIconeContainerDestaque,
+                ]}
             >
-                {titulo}
-            </Text>
-            <Text
-                style={[styles.cardSubtitulo, destaque && styles.cardSubtituloDestaque]}
-            >
-                {subtitulo}
-            </Text>
+                <Ionicons
+                    name={icone}
+                    size={20}
+                    color={destaque ? colors.white : colors.primaryDark}
+                />
+            </View>
+            <View style={styles.cardTextos}>
+                <Text
+                    style={[styles.cardTitulo, destaque && styles.cardTituloDestaque]}
+                >
+                    {titulo}
+                </Text>
+                <Text
+                    style={[styles.cardSubtitulo, destaque && styles.cardSubtituloDestaque]}
+                >
+                    {subtitulo}
+                </Text>
+            </View>
         </TouchableOpacity>
     );
 }
 
-function funcionalidadeEmDesenvolvimento() {
-    Alert.alert(
-        'Em desenvolvimento',
-        'Essa funcionalidade ainda está sendo implementada.'
-    );
+// Cores usadas para os avatares dos contatos, em rotação
+const CORES_AVATAR = [colors.primaryLight, colors.emergency, colors.warning, colors.sucess];
+
+function iniciaisDoNome(nome: string) {
+    const partes = nome.trim().split(' ').filter(Boolean);
+    if (partes.length === 0) return '?';
+    if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
+    return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
 }
 
 export default function HomeScreen({ navigation }: any) {
     const [nomeUsuaria, setNomeUsuaria] = useState('');
+    const [contatos, setContatos] = useState<ContatoConfianca[]>([]);
 
     useEffect(() => {
         async function carregarDadosUsuaria() {
@@ -69,7 +94,26 @@ export default function HomeScreen({ navigation }: any) {
             }
         }
 
+        async function carregarContatosConfianca() {
+            const usuariaId = auth.currentUser?.uid;
+            if (!usuariaId) return;
+
+            try {
+                const snapshot = await getDocs(
+                    collection(db, 'usuarias', usuariaId, 'contatosConfianca')
+                );
+                const lista = snapshot.docs.map((docSnap) => ({
+                    id: docSnap.id,
+                    nome: docSnap.data().nome || '',
+                }));
+                setContatos(lista);
+            } catch (error) {
+                console.error('Erro ao carregar contatos de confiança:', error);
+            }
+        }
+
         carregarDadosUsuaria();
+        carregarContatosConfianca();
     }, []);
 
     function handleLigar(numero: string) {
@@ -108,52 +152,87 @@ export default function HomeScreen({ navigation }: any) {
             contentContainerStyle={styles.content}
         >
             <View style={styles.headerBar}>
-                <View>
-                    <Text style={styles.saudacao}>
-                        Olá{nomeUsuaria ? `, ${nomeUsuaria}` : ''}
-                    </Text>
-                    <Text style={styles.subtitle}>
-                        Estamos aqui para te apoiar.
-                    </Text>
+                <Text style={styles.headerTitulo}>Ampara</Text>
+                <View style={styles.headerAcoes}>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('Configuracoes')}
+                        style={styles.iconeHeader}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        accessibilityLabel="Configurações"
+                    >
+                        <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={handleSair}
+                        style={styles.iconeHeader}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        accessibilityLabel="Sair"
+                    >
+                        <Ionicons name="log-out-outline" size={22} color={colors.textPrimary} />
+                    </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={handleSair} style={styles.sairButton}>
-                    <Text style={styles.sairTexto}>Sair</Text>
-                </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-                style={styles.botaoEmergencia}
-                onPress={handleEmergencia}
-                activeOpacity={0.85}
-            >
-                <Text style={styles.botaoEmergenciaTexto}>SOS</Text>
-                <Text style={styles.botaoEmergenciaSubtexto}>
+            {/* Cartão principal roxo escuro */}
+            <View style={styles.cartaoPrincipal}>
+                <Text style={styles.saudacao}>
+                    Olá{nomeUsuaria ? `, ${nomeUsuaria}` : ''}
+                </Text>
+                <Text style={styles.subtitle}>Você não está sozinha.</Text>
+
+                <TouchableOpacity
+                    style={styles.botaoEmergencia}
+                    onPress={handleEmergencia}
+                    activeOpacity={0.85}
+                >
+                    <Text style={styles.botaoEmergenciaTexto}>SOS</Text>
+                </TouchableOpacity>
+                <Text style={styles.botaoEmergenciaLegenda}>
                     Toque para acionar ajuda
                 </Text>
-            </TouchableOpacity>
 
-            <View style={styles.linhaTelefones}>
-                <TouchableOpacity
-                    style={styles.botaoTelefone}
-                    onPress={() => handleLigar('180')}
-                    activeOpacity={0.85}
-                >
-                    <Text style={styles.botaoTelefoneNumero}>180</Text>
-                    <Text style={styles.botaoTelefoneLabel}>
-                        Central de Atendimento à Mulher
-                    </Text>
-                </TouchableOpacity>
+                <View style={styles.linhaTelefones}>
+                    <TouchableOpacity
+                        style={styles.botaoTelefone}
+                        onPress={() => handleLigar('180')}
+                        activeOpacity={0.85}
+                    >
+                        <Ionicons name="call-outline" size={16} color={colors.white} />
+                        <Text style={styles.botaoTelefoneTexto}>180 Mulher</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.botaoTelefone}
-                    onPress={() => handleLigar('190')}
-                    activeOpacity={0.85}
-                >
-                    <Text style={styles.botaoTelefoneNumero}>190</Text>
-                    <Text style={styles.botaoTelefoneLabel}>
-                        Emergência policial
-                    </Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.botaoTelefone}
+                        onPress={() => handleLigar('190')}
+                        activeOpacity={0.85}
+                    >
+                        <Ionicons name="call-outline" size={16} color={colors.white} />
+                        <Text style={styles.botaoTelefoneTexto}>190 Polícia</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <Text style={styles.contatosLabel}>Contatos de confiança</Text>
+                <View style={styles.linhaContatos}>
+                    {contatos.slice(0, 4).map((contato, index) => (
+                        <View
+                            key={contato.id}
+                            style={[
+                                styles.avatarContato,
+                                { backgroundColor: CORES_AVATAR[index % CORES_AVATAR.length] },
+                            ]}
+                        >
+                            <Text style={styles.avatarContatoTexto}>
+                                {iniciaisDoNome(contato.nome)}
+                            </Text>
+                        </View>
+                    ))}
+                    <TouchableOpacity
+                        style={styles.avatarAdicionar}
+                        onPress={() => navigation.navigate('CadastroContatoConfianca')}
+                    >
+                        <Ionicons name="add" size={20} color={colors.white} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <Text style={styles.secaoTitulo}>Recursos</Text>
@@ -161,6 +240,7 @@ export default function HomeScreen({ navigation }: any) {
             <CardAcao
                 titulo="Contatos de confiança"
                 subtitulo="Cadastre e gerencie quem deve ser avisado em uma emergência"
+                icone="people-outline"
                 onPress={() => navigation.navigate('CadastroContatoConfianca')}
                 destaque
             />
@@ -168,12 +248,14 @@ export default function HomeScreen({ navigation }: any) {
             <CardAcao
                 titulo="Direitos e Lei Maria da Penha"
                 subtitulo="Informações sobre seus direitos e sinais de relacionamento abusivo"
+                icone="book-outline"
                 onPress={() => navigation.navigate('Informacoes')}
             />
 
             <CardAcao
                 titulo="Delegacias e serviços próximos"
                 subtitulo="Encontre pontos de atendimento especializado perto de você"
+                icone="location-outline"
                 onPress={() => navigation.navigate('MapaServicos')}
             />
         </ScrollView>
@@ -186,75 +268,121 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background,
     },
     content: {
-        padding: 24,
+        padding: 20,
         paddingBottom: 40,
     },
     headerBar: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 24,
-    },
-    saudacao: {
-        ...typography.title,
-        marginBottom: 2,
-    },
-    subtitle: {
-        ...typography.subtitle,
-    },
-    sairButton: {
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-    },
-    sairTexto: {
-        color: colors.primaryDark,
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    botaoEmergencia: {
-        backgroundColor: colors.error,
-        borderRadius: radius.lg,
-        paddingVertical: 28,
         alignItems: 'center',
         marginBottom: 16,
     },
+    headerTitulo: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.textPrimary,
+    },
+    headerAcoes: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    iconeHeader: {
+        padding: 4,
+    },
+    cartaoPrincipal: {
+        backgroundColor: colors.primaryDeep,
+        borderRadius: radius.lg,
+        padding: spacing.lg,
+        alignItems: 'center',
+        marginBottom: spacing.lg,
+    },
+    saudacao: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.white,
+        alignSelf: 'flex-start',
+    },
+    subtitle: {
+        fontSize: 13,
+        color: colors.primarySoft,
+        alignSelf: 'flex-start',
+        marginBottom: spacing.lg,
+    },
+    botaoEmergencia: {
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        backgroundColor: colors.emergency,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.sm,
+    },
     botaoEmergenciaTexto: {
         color: colors.white,
-        fontSize: 32,
+        fontSize: 30,
         fontWeight: '800',
         letterSpacing: 2,
     },
-    botaoEmergenciaSubtexto: {
-        color: colors.white,
-        fontSize: 13,
-        marginTop: 4,
-        opacity: 0.9,
+    botaoEmergenciaLegenda: {
+        color: colors.primarySoft,
+        fontSize: 12,
+        marginBottom: spacing.lg,
     },
     linhaTelefones: {
         flexDirection: 'row',
         gap: spacing.sm,
-        marginBottom: 24,
+        marginBottom: spacing.lg,
+        width: '100%',
     },
     botaoTelefone: {
         flex: 1,
-        backgroundColor: colors.surface,
-        borderRadius: radius.md,
-        borderWidth: 1,
-        borderColor: colors.border,
-        paddingVertical: 14,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        borderRadius: radius.md,
+        paddingVertical: 10,
     },
-    botaoTelefoneNumero: {
-        fontSize: 22,
+    botaoTelefoneTexto: {
+        color: colors.white,
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    contatosLabel: {
+        color: colors.primarySoft,
+        fontSize: 12,
+        alignSelf: 'flex-start',
+        marginBottom: spacing.sm,
+    },
+    linhaContatos: {
+        flexDirection: 'row',
+        alignSelf: 'flex-start',
+        gap: spacing.sm,
+    },
+    avatarContato: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarContatoTexto: {
+        color: colors.white,
+        fontSize: 13,
         fontWeight: '700',
-        color: colors.primaryDark,
     },
-    botaoTelefoneLabel: {
-        fontSize: 11,
-        color: colors.textPrimary,
-        textAlign: 'center',
-        marginTop: 4,
-        paddingHorizontal: 4,
+    avatarAdicionar: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.4)',
+        borderStyle: 'dashed',
     },
     secaoTitulo: {
         ...typography.label,
@@ -262,6 +390,9 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     card: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
         backgroundColor: colors.surface,
         borderRadius: radius.md,
         borderWidth: 1,
@@ -272,6 +403,20 @@ const styles = StyleSheet.create({
     cardDestaque: {
         backgroundColor: colors.primarySoft,
         borderColor: colors.primaryLight,
+    },
+    cardIconeContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.primarySoft,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cardIconeContainerDestaque: {
+        backgroundColor: colors.primary,
+    },
+    cardTextos: {
+        flex: 1,
     },
     cardTitulo: {
         fontSize: 15,
