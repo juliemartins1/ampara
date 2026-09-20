@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    ScrollView,
-    TouchableOpacity,
-    StyleSheet,
-    ActivityIndicator,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { colors, spacing, radius, typography } from '../theme/colors';
@@ -173,6 +166,14 @@ export default function InformacoesScreen({ navigation }: any) {
                     ))}
                 </ScrollView>
             )}
+
+            <TouchableOpacity
+                style={styles.botaoContinuar}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('MapaServicos')}
+            >
+                <Text style={styles.botaoContinuarTexto}>Ver serviços de apoio no mapa →</Text>
+            </TouchableOpacity>
         </ScrollView>
     );
 }
@@ -270,5 +271,17 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
         color: colors.primary,
+    },
+    botaoContinuar: {
+        backgroundColor: colors.primary,
+        borderRadius: radius.md,
+        paddingVertical: spacing.md,
+        alignItems: 'center',
+        marginTop: spacing.md,
+    },
+    botaoContinuarTexto: {
+        color: '#FFFFFF',
+        fontSize: 15,
+        fontWeight: '700',
     },
 });
