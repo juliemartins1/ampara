@@ -6,6 +6,7 @@ import {
     reauthenticateWithCredential,
     sendPasswordResetEmail,
     signOut,
+    updatePassword,
 } from 'firebase/auth';
 import {
     collection,
@@ -90,22 +91,17 @@ export async function excluirConta(senha: string) {
         EmailAuthProvider.credential(user.email, senha)
     );
 
-    excluindoConta = true;
-    try {
-        // O Firestore não apaga subcoleções junto com o documento pai,
-        // então os contatos precisam ser apagados um por um.
-        const contatos = await getDocs(
-            collection(db, 'usuarias', user.uid, 'contatosConfianca')
-        );
-        await Promise.all(contatos.docs.map((d) => deleteDoc(d.ref)));
-        await deleteDoc(doc(db, 'verificacoesEmail', user.uid));
-        await deleteDoc(doc(db, 'usuarias', user.uid));
+    // O Firestore não apaga subcoleções junto com o documento pai,
+    // então os contatos precisam ser apagados um por um.
+    const contatos = await getDocs(
+        collection(db, 'usuarias', user.uid, 'contatosConfianca')
+    );
+    await Promise.all(contatos.docs.map((d) => deleteDoc(d.ref)));
+    await deleteDoc(doc(db, 'verificacoesEmail', user.uid));
+    await deleteDoc(doc(db, 'usuarias', user.uid));
 
-        await limparDadosLocais();
-        await deleteUser(user); // dispara onAuthStateChanged -> volta para o Login
-    } finally {
-        excluindoConta = false;
-    }
+    await AsyncStorage.removeItem(CHAVE_CACHE_CONTATOS).catch(() => { });
+    await deleteUser(user); // por último: sem login, o Firestore não deixaria apagar
 }
 
 /** Traduz os códigos de erro do Firebase Auth mais comuns. */
@@ -118,9 +114,23 @@ export function mensagemErroAuth(codigo?: string): string {
             return 'Muitas tentativas. Aguarde um momento e tente novamente.';
         case 'auth/network-request-failed':
             return 'Falha de conexão. Verifique sua internet e tente novamente.';
-        case 'auth/requires-recent-login':
-            return 'Por segurança, saia e entre novamente antes de fazer isso.';
+        case 'auth/weak-password':
+            return 'A nova senha é muito fraca. Use ao menos 6 caracteres.';
         default:
             return 'Não foi possível concluir. Tente novamente.';
     }
+}
+/**
+ * Troca a senha sem enviar e-mail. O Firebase exige login recente para
+ * isso, então confirmamos a senha atual antes (reautenticação).
+ */
+export async function alterarSenha(senhaAtual: string, novaSenha: string) {
+    const user = auth.currentUser;
+    if (!user || !user.email) throw new Error('Usuária não autenticada.');
+
+    await reauthenticateWithCredential(
+        user,
+        EmailAuthProvider.credential(user.email, senhaAtual)
+    );
+    await updatePassword(user, novaSenha);
 }

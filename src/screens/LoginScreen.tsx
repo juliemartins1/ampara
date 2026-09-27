@@ -13,6 +13,7 @@ import {
     ActivityIndicator,
     Alert,
 } from 'react-native';
+import { emailFoiVerificado } from '../services/verificarEmailService';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebaseConfig';
 import { colors, spacing, radius, typography } from '../theme/colors';
@@ -52,11 +53,12 @@ export default function LoginScreen({ navigation }: any) {
         try {
             await signInWithEmailAndPassword(auth, email.trim(), senha);
 
-            // Reseta a pilha de navegação para a Home, impedindo que o
-            // botão "voltar" do dispositivo retorne para a tela de Login.
+            // Só entra na Home quem já confirmou o código do e-mail.
+            // Quem não confirmou vai para a tela do código.
+            const verificado = await emailFoiVerificado();
             navigation.reset({
                 index: 0,
-                routes: [{ name: 'Home' }],
+                routes: [{ name: verificado ? 'Home' : 'VerificarEmail' }],
             });
         } catch (error: any) {
             console.error('Erro ao entrar:', error);

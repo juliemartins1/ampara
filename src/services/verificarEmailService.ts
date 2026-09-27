@@ -1,3 +1,10 @@
+// src/services/verificacaoEmailService.ts
+// Verificação de e-mail por CÓDIGO de 6 dígitos.
+// 1. Gera um código aleatório e salva no Firestore só o HASH dele (SHA-256),
+//    com validade de 10 min e limite de tentativas.
+// 2. Envia o código por e-mail usando o EmailJS.
+// 3. Compara o hash do código digitado com o salvo. Se bater,
+//    marca usuarias/{uid}.emailVerificado = true.
 import * as Crypto from 'expo-crypto';
 import { send } from '@emailjs/react-native';
 import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -25,6 +32,12 @@ function uidAtual(): string {
 
 function refVerificacao() {
     return doc(db, 'verificacoesEmail', uidAtual());
+}
+
+/** A usuária logada já confirmou o e-mail? Usado no login e ao abrir o app. */
+export async function emailFoiVerificado(): Promise<boolean> {
+    const snap = await getDoc(doc(db, 'usuarias', uidAtual()));
+    return snap.data()?.emailVerificado === true;
 }
 
 /** Código de 6 dígitos com gerador criptográfico (não usa Math.random). */
@@ -60,7 +73,7 @@ export async function enviarCodigo(): Promise<void> {
         tentativas: 0,
     });
 
-    // Os nomes {{email}}, {{codigo}} e {{validade}} precisam existir no template do EmailJS
+    // {{email}}, {{codigo}} e {{validade}} precisam existir no template do EmailJS
     await send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
@@ -87,8 +100,7 @@ export async function confirmarCodigo(codigoDigitado: string): Promise<Resultado
             : { ok: false, motivo: 'bloqueado' };
     }
 
-    // Deu certo: marca a usuária como verificada e apaga o código usado.
-    // O App.tsx está ouvindo esse campo e leva para a Home sozinho.
+    // Deu certo: marca como verificada e apaga o código usado
     await setDoc(doc(db, 'usuarias', uidAtual()), { emailVerificado: true }, { merge: true });
     await deleteDoc(ref);
     return { ok: true };

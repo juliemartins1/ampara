@@ -1,3 +1,6 @@
+// src/screens/VerificarEmailScreen.tsx
+// Tela onde a usuária digita o código de 6 dígitos enviado por e-mail.
+// Aparece depois do cadastro e sempre que usuarias/{uid}.emailVerificado não for true.
 import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
@@ -23,7 +26,7 @@ import { colors, spacing, radius, typography } from '../theme/colors';
 
 const TAMANHO_CODIGO = 6;
 
-export default function VerificarEmailScreen() {
+export default function VerificarEmailScreen({ navigation }: any) {
     const email = auth.currentUser?.email ?? '';
     const inputRef = useRef<TextInput>(null);
     const [codigo, setCodigo] = useState('');
@@ -66,7 +69,11 @@ export default function VerificarEmailScreen() {
         setErro('');
         try {
             const resultado = await confirmarCodigo(valor);
-            if (resultado.ok) return; // o App.tsx troca para a Home sozinho
+            if (resultado.ok) {
+                // E-mail confirmado: vai para a Home e apaga o histórico
+                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+                return;
+            }
 
             setCodigo('');
             if (resultado.motivo === 'incorreto') {
@@ -96,7 +103,13 @@ export default function VerificarEmailScreen() {
     function trocarConta() {
         Alert.alert('Usar outra conta', 'Deseja sair e entrar com outro e-mail?', [
             { text: 'Cancelar', style: 'cancel' },
-            { text: 'Sair', onPress: () => sairDaConta() },
+            {
+                text: 'Sair',
+                onPress: async () => {
+                    await sairDaConta();
+                    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+                },
+            },
         ]);
     }
 

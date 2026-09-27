@@ -11,8 +11,7 @@ import {
     Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { signOut } from 'firebase/auth';
-import { auth } from '../services/firebaseConfig';
+import { sairDaConta } from '../services/usuariaService';
 import { colors, spacing, radius, typography } from '../theme/colors';
 import {
     getDisguiseModeEnabled,
@@ -79,7 +78,7 @@ export default function ConfiguracoesScreen() {
                 style: 'destructive',
                 onPress: async () => {
                     try {
-                        await signOut(auth);
+                        await sairDaConta();
                         navigation.reset({
                             index: 0,
                             routes: [{ name: 'Login' }],
@@ -131,14 +130,39 @@ export default function ConfiguracoesScreen() {
                 <ItemNavegavel
                     label="Contatos de confiança"
                     descricao="Gerencie quem deve ser avisado em uma emergência"
-                    onPress={() => navigation.navigate('CadastroContatoConfianca')}
+                    onPress={() => navigation.navigate('Contatos')}
                 />
             </Secao>
 
-            <Secao titulo="Conta">
+            <Secao titulo="Minha conta">
+                <ItemNavegavel
+                    label="Editar meus dados"
+                    descricao="Nome, telefone e bairro"
+                    onPress={() => navigation.navigate('EditarPerfil')}
+                />
+
+                <View style={styles.divisor} />
+
+                <ItemNavegavel
+                    label="Alterar senha"
+                    descricao="Informe a senha atual e a nova"
+                    onPress={() => navigation.navigate('AlterarSenha')}
+                />
+
+                <View style={styles.divisor} />
+
                 <ItemNavegavel
                     label="Sair da conta"
                     onPress={handleSair}
+                    destrutivo
+                />
+
+                <View style={styles.divisor} />
+
+                <ItemNavegavel
+                    label="Excluir minha conta"
+                    descricao="Apaga seu cadastro e seus contatos de confiança"
+                    onPress={() => navigation.navigate('ExcluirConta')}
                     destrutivo
                 />
             </Secao>

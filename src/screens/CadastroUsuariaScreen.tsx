@@ -132,8 +132,9 @@ export default function CadastroUsuariaScreen({ navigation }: any) {
             // A conta criada já fica logada: o App.tsx mostra a tela do código sozinho.
             Alert.alert(
                 'Cadastro realizado',
-                'Enviamos um código de 6 dígitos para o seu e-mail. Digite-o na próxima tela.'
+                'Enviamos um código de 6 dígitos para o seu e-mail.'
             );
+            navigation.reset({ index: 0, routes: [{ name: 'VerificarEmail' }] });
         } catch (error: any) {
             console.error('Erro ao cadastrar usuária:', error);
 
