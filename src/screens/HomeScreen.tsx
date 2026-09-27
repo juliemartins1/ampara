@@ -9,16 +9,19 @@ import {
     Linking,
     Alert,
 } from 'react-native';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { auth, db } from '../services/firebaseConfig';
 import { colors, spacing, radius, typography } from '../theme/colors';
+import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { auth, db } from '../services/firebaseConfig';
 
-interface ContatoConfianca {
+interface Contato {
     id: string;
     nome: string;
 }
+
+const LIMITE_CONTATOS = 5;
 
 interface AcaoRapidaProps {
     titulo: string;
@@ -76,44 +79,31 @@ function iniciaisDoNome(nome: string) {
 
 export default function HomeScreen({ navigation }: any) {
     const [nomeUsuaria, setNomeUsuaria] = useState('');
-    const [contatos, setContatos] = useState<ContatoConfianca[]>([]);
+    const [contatos, setContatos] = useState<Contato[]>([]);
 
     useEffect(() => {
-        async function carregarDadosUsuaria() {
-            const usuariaId = auth.currentUser?.uid;
-            if (!usuariaId) return;
+        const usuariaId = auth.currentUser?.uid;
+        if (!usuariaId) return;
 
-            try {
-                const snapshot = await getDoc(doc(db, 'usuarias', usuariaId));
-                if (snapshot.exists()) {
-                    const primeiroNome = (snapshot.data().nome || '').split(' ')[0];
-                    setNomeUsuaria(primeiroNome);
-                }
-            } catch (error) {
-                console.error('Erro ao carregar dados da usuária:', error);
-            }
-        }
+        // onSnapshot = escuta em tempo real. Se a usuária editar o nome ou
+        // um contato, a Home já aparece atualizada ao voltar para ela.
+        const pararUsuaria = onSnapshot(
+            doc(db, 'usuarias', usuariaId),
+            (snap) => setNomeUsuaria((snap.data()?.nome || '').split(' ')[0]),
+            (erro) => console.error('Erro ao carregar dados da usuária:', erro)
+        );
+        const pararContatos = onSnapshot(
+            collection(db, 'usuarias', usuariaId, 'contatosConfianca'),
+            (snap) =>
+                setContatos(snap.docs.map((d) => ({ id: d.id, nome: d.data().nome || '' }))),
+            (erro) => console.error('Erro ao carregar contatos de confiança:', erro)
+        );
 
-        async function carregarContatosConfianca() {
-            const usuariaId = auth.currentUser?.uid;
-            if (!usuariaId) return;
-
-            try {
-                const snapshot = await getDocs(
-                    collection(db, 'usuarias', usuariaId, 'contatosConfianca')
-                );
-                const lista = snapshot.docs.map((docSnap) => ({
-                    id: docSnap.id,
-                    nome: docSnap.data().nome || '',
-                }));
-                setContatos(lista);
-            } catch (error) {
-                console.error('Erro ao carregar contatos de confiança:', error);
-            }
-        }
-
-        carregarDadosUsuaria();
-        carregarContatosConfianca();
+        // Cancela as escutas quando a tela é fechada
+        return () => {
+            pararUsuaria();
+            pararContatos();
+        };
     }, []);
 
     function handleLigar(numero: string) {
@@ -124,141 +114,157 @@ export default function HomeScreen({ navigation }: any) {
     }
 
     function handleEmergencia() {
-        // TODO: implementar o acionamento real do botão de emergência —
-        // enviar localização + mensagem de alerta via deep link (WhatsApp/SMS)
-        // para os contatos de confiança cadastrados.
+        // TODO: envio real do alerta (localização + SMS/WhatsApp) — próxima etapa.
         Alert.alert(
             'Botão de emergência',
             'Essa funcionalidade ainda está sendo implementada. Em caso de emergência real, ligue para 190 (Polícia) ou 180 (Central de Atendimento à Mulher).'
         );
     }
 
-    async function handleSair() {
-        try {
-            await signOut(auth);
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-            });
-        } catch (error) {
-            console.error('Erro ao sair:', error);
-            Alert.alert('Erro', 'Não foi possível sair da conta. Tente novamente.');
-        }
+    function handleSair() {
+        Alert.alert('Sair da conta', 'Tem certeza que deseja sair?', [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+                text: 'Sair',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await signOut(auth);
+                        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+                    } catch (error) {
+                        console.error('Erro ao sair:', error);
+                        Alert.alert('Erro', 'Não foi possível sair da conta. Tente novamente.');
+                    }
+                },
+            },
+        ]);
     }
 
     return (
-        <ScrollView
-            style={styles.container}
-            contentContainerStyle={styles.content}
-        >
-            <View style={styles.headerBar}>
-                <Text style={styles.headerTitulo}>Ampara</Text>
-                <View style={styles.headerAcoes}>
-                    <TouchableOpacity
-                        onPress={() => navigation.navigate('Configuracoes')}
-                        style={styles.iconeHeader}
-                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                        accessibilityLabel="Configurações"
-                    >
-                        <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={handleSair}
-                        style={styles.iconeHeader}
-                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                        accessibilityLabel="Sair"
-                    >
-                        <Ionicons name="log-out-outline" size={22} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Cartão principal roxo escuro */}
-            <View style={styles.cartaoPrincipal}>
-                <Text style={styles.saudacao}>
-                    Olá{nomeUsuaria ? `, ${nomeUsuaria}` : ''}
-                </Text>
-                <Text style={styles.subtitle}>Você não está sozinha.</Text>
-
-                <TouchableOpacity
-                    style={styles.botaoEmergencia}
-                    onPress={handleEmergencia}
-                    activeOpacity={0.85}
-                >
-                    <Text style={styles.botaoEmergenciaTexto}>SOS</Text>
-                </TouchableOpacity>
-                <Text style={styles.botaoEmergenciaLegenda}>
-                    Toque para acionar ajuda
-                </Text>
-
-                <View style={styles.linhaTelefones}>
-                    <TouchableOpacity
-                        style={styles.botaoTelefone}
-                        onPress={() => handleLigar('180')}
-                        activeOpacity={0.85}
-                    >
-                        <Ionicons name="call-outline" size={16} color={colors.white} />
-                        <Text style={styles.botaoTelefoneTexto}>180 Mulher</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={styles.botaoTelefone}
-                        onPress={() => handleLigar('190')}
-                        activeOpacity={0.85}
-                    >
-                        <Ionicons name="call-outline" size={16} color={colors.white} />
-                        <Text style={styles.botaoTelefoneTexto}>190 Polícia</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <Text style={styles.contatosLabel}>Contatos de confiança</Text>
-                <View style={styles.linhaContatos}>
-                    {contatos.slice(0, 4).map((contato, index) => (
-                        <View
-                            key={contato.id}
-                            style={[
-                                styles.avatarContato,
-                                { backgroundColor: CORES_AVATAR[index % CORES_AVATAR.length] },
-                            ]}
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <ScrollView
+                style={styles.container}
+                contentContainerStyle={styles.content}
+            >
+                <View style={styles.headerBar}>
+                    <Text style={styles.headerTitulo}>Ampara</Text>
+                    <View style={styles.headerAcoes}>
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('Configuracoes')}
+                            style={styles.iconeHeader}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                            accessibilityLabel="Configurações"
                         >
-                            <Text style={styles.avatarContatoTexto}>
-                                {iniciaisDoNome(contato.nome)}
-                            </Text>
-                        </View>
-                    ))}
-                    <TouchableOpacity
-                        style={styles.avatarAdicionar}
-                        onPress={() => navigation.navigate('CadastroContatoConfianca')}
-                    >
-                        <Ionicons name="add" size={20} color={colors.white} />
-                    </TouchableOpacity>
+                            <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleSair}
+                            style={styles.iconeHeader}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                            accessibilityLabel="Sair"
+                        >
+                            <Ionicons name="log-out-outline" size={22} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
 
-            <Text style={styles.secaoTitulo}>Recursos</Text>
+                {/* Cartão principal roxo escuro */}
+                <View style={styles.cartaoPrincipal}>
+                    <Text style={styles.saudacao}>
+                        Olá{nomeUsuaria ? `, ${nomeUsuaria}` : ''}
+                    </Text>
+                    <Text style={styles.subtitle}>Você não está sozinha.</Text>
 
-            <CardAcao
-                titulo="Contatos de confiança"
-                subtitulo="Cadastre e gerencie quem deve ser avisado em uma emergência"
-                icone="people-outline"
-                onPress={() => navigation.navigate('CadastroContatoConfianca')}
-                destaque
-            />
+                    <TouchableOpacity
+                        style={styles.botaoEmergencia}
+                        onPress={handleEmergencia}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityLabel="Botão de emergência"
+                    >
+                        <Text style={styles.botaoEmergenciaTexto}>SOS</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.botaoEmergenciaLegenda}>
+                        Toque para acionar ajuda
+                    </Text>
 
-            <CardAcao
-                titulo="Direitos e Lei Maria da Penha"
-                subtitulo="Informações sobre seus direitos e sinais de relacionamento abusivo"
-                icone="book-outline"
-                onPress={() => navigation.navigate('Informacoes')}
-            />
+                    <View style={styles.linhaTelefones}>
+                        <TouchableOpacity
+                            style={styles.botaoTelefone}
+                            onPress={() => handleLigar('180')}
+                            activeOpacity={0.85}
+                        >
+                            <Ionicons name="call-outline" size={16} color={colors.white} />
+                            <Text style={styles.botaoTelefoneTexto}>180 Mulher</Text>
+                        </TouchableOpacity>
 
-            <CardAcao
-                titulo="Delegacias e serviços próximos"
-                subtitulo="Encontre pontos de atendimento especializado perto de você"
-                icone="location-outline"
-                onPress={() => navigation.navigate('MapaServicos')}
-            />
-        </ScrollView>
+                        <TouchableOpacity
+                            style={styles.botaoTelefone}
+                            onPress={() => handleLigar('190')}
+                            activeOpacity={0.85}
+                        >
+                            <Ionicons name="call-outline" size={16} color={colors.white} />
+                            <Text style={styles.botaoTelefoneTexto}>190 Polícia</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.contatosLabel}>Contatos de confiança</Text>
+                    {contatos.length === 0 ? (
+                        <Text style={styles.avisoSemContatos}>
+                            Nenhum contato cadastrado. O SOS precisa de ao menos um.
+                        </Text>
+                    ) : null}
+                    <View style={styles.linhaContatos}>
+                        {contatos.slice(0, LIMITE_CONTATOS).map((contato, index) => (
+                            <View
+                                key={contato.id}
+                                style={[
+                                    styles.avatarContato,
+                                    { backgroundColor: CORES_AVATAR[index % CORES_AVATAR.length] },
+                                ]}
+                            >
+                                <Text style={styles.avatarContatoTexto}>
+                                    {iniciaisDoNome(contato.nome)}
+                                </Text>
+                            </View>
+                        ))}
+                        {contatos.length < LIMITE_CONTATOS ? (
+                            <TouchableOpacity
+                                style={styles.avatarAdicionar}
+                                onPress={() => navigation.navigate('CadastroContatoConfianca')}
+                                accessibilityLabel="Adicionar contato de confiança"
+                            >
+                                <Ionicons name="add" size={20} color={colors.white} />
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
+                </View>
+
+                <Text style={styles.secaoTitulo}>Recursos</Text>
+
+                <CardAcao
+                    titulo="Contatos de confiança"
+                    subtitulo="Cadastre e gerencie quem deve ser avisado em uma emergência"
+                    icone="people-outline"
+                    onPress={() => navigation.navigate('CadastroContatoConfianca')}
+                    destaque
+                />
+
+                <CardAcao
+                    titulo="Direitos e Lei Maria da Penha"
+                    subtitulo="Informações sobre seus direitos e sinais de relacionamento abusivo"
+                    icone="book-outline"
+                    onPress={() => navigation.navigate('Informacoes')}
+                />
+
+                <CardAcao
+                    titulo="Delegacias e serviços próximos"
+                    subtitulo="Encontre pontos de atendimento especializado perto de você"
+                    icone="location-outline"
+                    onPress={() => navigation.navigate('MapaServicos')}
+                />
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
@@ -328,6 +334,12 @@ const styles = StyleSheet.create({
         color: colors.primarySoft,
         fontSize: 12,
         marginBottom: spacing.lg,
+    },
+    avisoSemContatos: {
+        color: colors.primarySoft,
+        fontSize: 12,
+        alignSelf: 'flex-start',
+        marginBottom: spacing.sm,
     },
     linhaTelefones: {
         flexDirection: 'row',

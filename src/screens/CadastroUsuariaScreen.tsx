@@ -114,6 +114,7 @@ export default function CadastroUsuariaScreen({ navigation }: any) {
                     email: email.trim(),
                     telefone: `55${telefone.replace(/\D/g, '')}`,
                     bairro,
+                    emailVerificado: false, // vira true na tela do código
                     createdAt: serverTimestamp(),
                 });
             } catch (firestoreError) {
@@ -128,8 +129,11 @@ export default function CadastroUsuariaScreen({ navigation }: any) {
                 throw firestoreError;
             }
 
-            Alert.alert('Cadastro realizado', 'Sua conta foi criada com sucesso.');
-            navigation?.navigate?.('CadastroContatoConfianca');
+            // A conta criada já fica logada: o App.tsx mostra a tela do código sozinho.
+            Alert.alert(
+                'Cadastro realizado',
+                'Enviamos um código de 6 dígitos para o seu e-mail. Digite-o na próxima tela.'
+            );
         } catch (error: any) {
             console.error('Erro ao cadastrar usuária:', error);
 
