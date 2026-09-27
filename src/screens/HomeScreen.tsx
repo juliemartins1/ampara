@@ -246,7 +246,7 @@ export default function HomeScreen({ navigation }: any) {
                     titulo="Contatos de confiança"
                     subtitulo="Cadastre e gerencie quem deve ser avisado em uma emergência"
                     icone="people-outline"
-                    onPress={() => navigation.navigate('CadastroContatoConfianca')}
+                    onPress={() => navigation.navigate('Contatos')}
                     destaque
                 />
 

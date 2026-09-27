@@ -1,10 +1,11 @@
 // src/screens/CadastroContatoConfiancaScreen.tsx
-import React, { useState } from 'react';
-import {   View,Text,TextInput,StyleSheet,TouchableOpacity,ScrollView,KeyboardAvoidingView,Platform,ActivityIndicator,Alert} from 'react-native';
-import {collection, addDoc,serverTimestamp} from 'firebase/firestore';
+// Serve para CRIAR e para EDITAR contato. Se a tela receber
+// route.params.contato, entra em modo edição.
+import React, { useLayoutEffect, useState } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { validarTelefone } from '../utils/validarTelefone';
-import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../services/firebaseConfig';
+import { formatarTelefone, telefoneParaExibicao, telefoneParaSalvar } from '../utils/formatarTelefone';
+import { Contato, criarContato, editarContato } from '../services/contatosService';
 import { colors, spacing, radius, typography } from '../theme/colors';
 import { ParentescoContato } from '../types/models';
 
@@ -22,23 +23,26 @@ const OPCOES_PARENTESCO: ParentescoContato[] = [
     'Outro',
 ];
 
-function formatarTelefone(valor: string): string {
-    const digitos = valor.replace(/\D/g, '').slice(0, 11);
-    if (digitos.length <= 2) return digitos;
-    if (digitos.length <= 7) {
-        return `(${digitos.slice(0, 2)}) ${digitos.slice(2)}`;
-    }
-    return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`;
-}
+export default function CadastroContatoConfiancaScreen({ navigation, route }: any) {
+    // Se veio um contato pela navegação, a tela está em modo EDIÇÃO
+    const contatoEmEdicao: Contato | undefined = route?.params?.contato;
+    const editando = !!contatoEmEdicao;
 
-export default function CadastroContatoConfiancaScreen({ navigation }: any) {
-    const [nome, setNome] = useState('');
-    const [telefone, setTelefone] = useState('');
+    // Em modo edição, os campos já começam preenchidos com os dados do contato
+    const [nome, setNome] = useState(contatoEmEdicao?.nome ?? '');
+    const [telefone, setTelefone] = useState(
+        contatoEmEdicao ? telefoneParaExibicao(contatoEmEdicao.telefone) : ''
+    );
     const [parentesco, setParentesco] = useState<ParentescoContato | null>(
-        null
+        contatoEmEdicao?.parentesco ?? null
     );
     const [errors, setErrors] = useState<FormErrors>({});
     const [loading, setLoading] = useState(false);
+
+    // Muda o título do cabeçalho conforme o modo
+    useLayoutEffect(() => {
+        navigation.setOptions({ title: editando ? 'Editar contato' : 'Novo contato' });
+    }, [navigation, editando]);
 
     function validar(): boolean {
         const novosErros: FormErrors = {};
@@ -60,48 +64,30 @@ export default function CadastroContatoConfiancaScreen({ navigation }: any) {
         return Object.keys(novosErros).length === 0;
     }
 
-    async function handleCadastrar() {
+    async function handleSalvar() {
         if (!validar()) return;
 
         setLoading(true);
-
-        const usuariaId = await new Promise<string | null>((resolve) => {
-            const unsubscribe = onAuthStateChanged(auth, (user) => {
-                unsubscribe();
-                resolve(user?.uid ?? null);
-            });
-        });
-
-        if (!usuariaId) {
-            setLoading(false);
-            Alert.alert(
-                'Sessão expirada',
-                'Faça login novamente para cadastrar um contato de confiança.'
-            );
-            return;
-        }
+        const dados = {
+            nome: nome.trim(),
+            telefone: telefoneParaSalvar(telefone),
+            parentesco: parentesco as ParentescoContato,
+        };
 
         try {
-            await addDoc(collection(db, 'usuarias', usuariaId, 'contatosConfianca'), {
-                nome: nome.trim(),
-                telefone: `55${telefone.replace(/\D/g, '')}`,
-                parentesco,
-                createdAt: serverTimestamp(),
-            });
-
-            Alert.alert(
-                'Contato cadastrado',
-                `${nome.trim()} foi adicionado(a) aos seus contatos de confiança.`
-            );
-            setNome('');
-            setTelefone('');
-            setParentesco(null);
-            navigation?.navigate?.('Informacoes');
+            if (editando) {
+                await editarContato(contatoEmEdicao!.id, dados);
+            } else {
+                await criarContato(dados);
+                Alert.alert(
+                    'Contato cadastrado',
+                    `${dados.nome} foi adicionado(a) aos seus contatos de confiança.`
+                );
+            }
+            navigation.goBack();
         } catch (error) {
-            Alert.alert(
-                'Erro ao cadastrar',
-                'Não foi possível salvar o contato. Tente novamente.'
-            );
+            console.error('Erro ao salvar contato:', error);
+            Alert.alert('Erro ao salvar', 'Não foi possível salvar o contato. Tente novamente.');
         } finally {
             setLoading(false);
         }
@@ -121,7 +107,9 @@ export default function CadastroContatoConfiancaScreen({ navigation }: any) {
                     <View style={styles.logoCircle}>
                         <Text style={styles.logoText}>♥</Text>
                     </View>
-                    <Text style={styles.title}>Contato de confiança</Text>
+                    <Text style={styles.title}>
+                        {editando ? 'Editar contato' : 'Contato de confiança'}
+                    </Text>
                     <Text style={styles.subtitle}>
                         Essa pessoa poderá ser acionada em situações de emergência,
                         recebendo alertas com sua localização.
@@ -193,14 +181,16 @@ export default function CadastroContatoConfiancaScreen({ navigation }: any) {
 
                     <TouchableOpacity
                         style={[styles.button, loading && styles.buttonDisabled]}
-                        onPress={handleCadastrar}
+                        onPress={handleSalvar}
                         disabled={loading}
                         activeOpacity={0.85}
                     >
                         {loading ? (
                             <ActivityIndicator color={colors.white} />
                         ) : (
-                            <Text style={typography.button}>Salvar contato</Text>
+                            <Text style={typography.button}>
+                                {editando ? 'Salvar alterações' : 'Salvar contato'}
+                            </Text>
                         )}
                     </TouchableOpacity>
 
@@ -208,7 +198,9 @@ export default function CadastroContatoConfiancaScreen({ navigation }: any) {
                         style={styles.linkButton}
                         onPress={() => navigation?.goBack?.()}
                     >
-                        <Text style={styles.linkText}>Cadastrar mais tarde</Text>
+                        <Text style={styles.linkText}>
+                            {editando ? 'Cancelar' : 'Cadastrar mais tarde'}
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </ScrollView>

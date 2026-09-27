@@ -71,10 +71,7 @@ export function ouvirContatos(
     );
 }
 
-/**
- * Usado pelo SOS. Primeiro tenta a cópia local (instantâneo e funciona
- * offline); se ela não existir, busca no Firestore.
- */
+/** Usado futuramente pelo SOS: tenta a cópia local primeiro (funciona offline). */
 export async function buscarContatosParaEmergencia(): Promise<Contato[]> {
     try {
         const cache = await AsyncStorage.getItem(CHAVE_CACHE_CONTATOS);
@@ -85,7 +82,6 @@ export async function buscarContatosParaEmergencia(): Promise<Contato[]> {
     } catch {
         // cache corrompido: segue para o Firestore
     }
-
     const snapshot = await getDocs(colecaoContatos());
     const lista = snapshot.docs.map((d) => paraContato(d.id, d.data()));
     salvarCache(lista);

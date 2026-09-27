@@ -10,6 +10,7 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from 'react-native';
+import { auth } from '../services/firebaseConfig';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { spacing, radius } from '../theme/colors';
@@ -42,12 +43,10 @@ export default function BlocoDeNotasScreen() {
         setNotas(novaLista);
         await AsyncStorage.setItem(NOTAS_STORAGE_KEY, JSON.stringify(novaLista));
     };
-
-    // TEMPORÁRIO: enquanto o fluxo de login não está pronto, o gesto secreto
-    // leva para o cadastro de usuária em vez da Home. Reverter para 'Home'
-    // quando o fluxo de login/autenticação estiver concluído.
+    // Gesto secreto: sai do disfarce. Vai para a Home se estiver logada,
+    // ou para o Login se não estiver.
     const sairDoDisfarce = () => {
-        navigation.replace('CadastroUsuaria');
+        navigation.replace(auth.currentUser ? 'Home' : 'Login');
     };
 
     const criarNovaNota = () => {
