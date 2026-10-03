@@ -263,6 +263,12 @@ export default function HomeScreen({ navigation }: any) {
                     icone="location-outline"
                     onPress={() => navigation.navigate('MapaServicos')}
                 />
+                <CardAcao
+                    titulo="Comunidade"
+                    subtitulo="Leia e compartilhe relatos, apoio e dicas de forma anônima"
+                    icone="chatbubbles-outline"
+                    onPress={() => navigation.navigate('Mural')}
+                />
             </ScrollView>
         </SafeAreaView>
     );

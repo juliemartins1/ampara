@@ -23,6 +23,9 @@ import VerificarEmailScreen from './src/screens/VerificarEmailScreen';
 import { getDisguiseModeEnabled } from './src/services/disguiseMode';
 import { colors } from './src/theme/colors';
 import ExcluirContaScreen from './src/screens/ExcluirContaScreen';
+import NovaPublicacaoScreen from './src/screens/NovaPublicacaoScreen';
+import MuralScreen from './src/screens/MuralScreen';
+import ModeracaoScreen from './src/screens/ModeracaoScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -74,6 +77,9 @@ export default function App() {
         <Stack.Screen name="AlterarSenha" component={AlterarSenhaScreen} options={{ title: 'Alterar senha' }} />
         <Stack.Screen name="ExcluirConta" component={ExcluirContaScreen} options={{ title: 'Excluir conta' }} />
         <Stack.Screen name="Contatos" component={ContatosScreen} options={{ title: 'Contatos de confiança' }} />
+        <Stack.Screen name="NovaPublicacao" component={NovaPublicacaoScreen} options={{ title: 'Nova publicação' }} />
+        <Stack.Screen name="Moderacao" component={ModeracaoScreen} options={{ title: 'Moderação' }} />
+        <Stack.Screen name="Mural" component={MuralScreen} options={{ title: 'Comunidade' }} />
 </Stack.Navigator>
     </NavigationContainer>
   );
