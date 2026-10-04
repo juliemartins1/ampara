@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Alert,
 } from 'react-native';
@@ -7,7 +7,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { colors, spacing, radius, typography } from '../theme/colors';
-import { ehModeradora, denunciarPublicacao, MOTIVOS_DENUNCIA, MotivoDenuncia } from '../services/moderacao';
+import {
+    ehModeradora,
+    denunciarPublicacao,
+    jaDenunciei,
+    MOTIVOS_DENUNCIA,
+    MotivoDenuncia,
+} from '../services/moderacao';
 
 type Categoria = 'relato' | 'apoio' | 'dica';
 
@@ -40,6 +46,26 @@ export default function MuralScreen() {
     const [erro, setErro] = useState(false);
     const [podeModerar, setPodeModerar] = useState(false);
     const [denunciando, setDenunciando] = useState<string | null>(null); // id da publicação no modal
+
+    // Publicações que esta usuária já denunciou (o botão vira "Denunciada")
+    const [denunciadas, setDenunciadas] = useState<Set<string>>(new Set());
+    // Ids já conferidos no banco, para não repetir a consulta a cada atualização
+    const conferidas = useRef<Set<string>>(new Set());
+
+    function marcarComoDenunciada(id: string) {
+        setDenunciadas(atual => new Set(atual).add(id));
+    }
+
+    // Para cada publicação nova na tela, confere uma única vez se ela já foi denunciada
+    useEffect(() => {
+        const novas = publicacoes.filter(p => !conferidas.current.has(p.id));
+        novas.forEach(p => {
+            conferidas.current.add(p.id);
+            jaDenunciei(p.id)
+                .then(sim => { if (sim) marcarComoDenunciada(p.id); })
+                .catch(() => { /* sem conexão: o botão continua disponível */ });
+        });
+    }, [publicacoes]);
 
     useEffect(() => {
         ehModeradora().then(setPodeModerar);
@@ -97,13 +123,16 @@ export default function MuralScreen() {
         setDenunciando(null);
         try {
             await denunciarPublicacao(id, motivo);
+            marcarComoDenunciada(id);
             Alert.alert('Denúncia enviada', 'Obrigada. A moderação vai revisar esta publicação.');
         } catch (e: any) {
-            if (e?.code === 'permission-denied') {
+            if (e?.message === 'ja-denunciou') {
+                marcarComoDenunciada(id);
                 Alert.alert('Denúncia já registrada', 'Você já denunciou esta publicação.');
             } else {
-                console.error(e);
-                Alert.alert('Erro', 'Não foi possível enviar a denúncia.');
+                // Mostra o código no terminal para facilitar achar a causa
+                console.error('[mural] erro ao denunciar:', e?.code, e?.message);
+                Alert.alert('Erro', 'Não foi possível enviar a denúncia. Tente novamente.');
             }
         }
     }
@@ -135,15 +164,32 @@ export default function MuralScreen() {
                             <Text style={styles.texto}>{item.texto}</Text>
                             <View style={styles.rodapeCard}>
                                 <Text style={styles.autora}>Anônima</Text>
-                                <TouchableOpacity
-                                    style={styles.botaoDenunciar}
-                                    onPress={() => setDenunciando(item.id)}
-                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                    accessibilityLabel="Denunciar publicação"
-                                >
-                                    <Ionicons name="flag-outline" size={14} color={colors.textSecondary} />
-                                    <Text style={styles.textoDenunciar}>Denunciar</Text>
-                                </TouchableOpacity>
+
+                                {/* Só a moderadora vê quantas denúncias a publicação tem */}
+                                {podeModerar && item.denuncias > 0 && (
+                                    <Text style={styles.contadorDenuncias}>
+                                        {item.denuncias} de {LIMITE_OCULTAR} denúncias
+                                    </Text>
+                                )}
+
+                                {denunciadas.has(item.id) ? (
+                                    <View style={styles.botaoDenunciar}>
+                                        <Ionicons name="flag" size={14} color={colors.error} />
+                                        <Text style={[styles.textoDenunciar, { color: colors.error }]}>
+                                            Denunciada
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    <TouchableOpacity
+                                        style={styles.botaoDenunciar}
+                                        onPress={() => setDenunciando(item.id)}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                        accessibilityLabel="Denunciar publicação"
+                                    >
+                                        <Ionicons name="flag-outline" size={14} color={colors.textSecondary} />
+                                        <Text style={styles.textoDenunciar}>Denunciar</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         </View>
                     )}
@@ -207,6 +253,7 @@ const styles = StyleSheet.create({
     rodapeCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
     autora: { ...typography.helper, fontStyle: 'italic' },
     botaoDenunciar: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    contadorDenuncias: { fontSize: 12, fontWeight: '700', color: colors.error },
     textoDenunciar: { ...typography.helper },
     botaoModerar: { color: colors.primary, fontWeight: '700', fontSize: 15 },
     botaoNovo: {

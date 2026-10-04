@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    FlatList,
     Linking,
     StyleSheet,
     Text,
@@ -10,6 +11,7 @@ import {
 } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import * as Location from 'expo-location';
+import NetInfo from '@react-native-community/netinfo';
 
 import {
     servicosApoio,
@@ -111,7 +113,7 @@ async function calcularRota(
  * Monta a página HTML que será exibida dentro do WebView.
  *
  * O mapa é Leaflet.
- * Os tiles são da CARTO (Voyager), com visual próximo do Google Maps.
+ * Os tiles (imagens do mapa) são do OpenStreetMap.
  */
 function gerarHTMLMapa(
     localizacao: Coordenada | null,
@@ -227,7 +229,7 @@ body {
 
     font-size: 10px;
 
-    opacity: 0.7;
+    opacity: 0.9;
 }
 
 </style>
@@ -240,6 +242,19 @@ body {
 
 <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
+
+<script>
+/*
+ * Segunda proteção contra falta de internet: se o Leaflet
+ * não carregou (ex.: Wi-Fi conectado, mas sem internet),
+ * avisa o app para trocar o mapa pela lista de endereços.
+ */
+if (typeof L === 'undefined') {
+    window.ReactNativeWebView.postMessage(
+        JSON.stringify({ tipo: 'MAPA_INDISPONIVEL' })
+    );
+}
 </script>
 
 <script>
@@ -274,17 +289,17 @@ L.control.zoom({ position: 'bottomright' }).addTo(mapa);
 
 
 /*
- * Tiles da Esri (World Street Map) — visual claro,
- * próximo do estilo do Google Maps, gratuito e
- * sem necessidade de API Key.
+ * Tiles do OpenStreetMap — gratuitos, sem API Key.
+ * A política de uso do OSM exige a atribuição visível no mapa.
+ * Atenção: a ordem na URL é {z}/{x}/{y}.
  */
 L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
         maxZoom: 19,
 
         attribution:
-            'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom'
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }
 ).addTo(mapa);
 
@@ -522,7 +537,116 @@ if (
 }
 
 
+/*
+ * Ordem das categorias na lista offline:
+ * Delegacia da Mulher primeiro, por ser o foco do app.
+ */
+const ordemCategorias: CategoriaServico[] = [
+    'delegacia_mulher',
+    'policia',
+    'hospital',
+    'upa',
+    'CRAS',
+    'bombeiros',
+];
+
+const servicosOrdenados = [...servicosApoio].sort(
+    (a, b) =>
+        ordemCategorias.indexOf(a.categoria) -
+        ordemCategorias.indexOf(b.categoria)
+);
+
+/**
+ * Lista de endereços usada quando não há internet.
+ * Os dados vêm de servicosApoio.ts (dentro do app),
+ * e o botão Ligar usa o discador, que funciona offline.
+ */
+function ListaServicosOffline({
+    aoLigar,
+}: {
+    aoLigar: (telefone: string) => void;
+}) {
+    return (
+        <View style={styles.container}>
+
+            <View style={styles.avisoOffline}>
+                <Text style={styles.avisoOfflineTitulo}>
+                    Você está sem internet
+                </Text>
+                <Text style={styles.avisoOfflineTexto}>
+                    O mapa precisa de conexão. Enquanto isso, veja os endereços
+                    e telefones abaixo. O mapa volta sozinho quando a internet voltar.
+                </Text>
+            </View>
+
+            <FlatList
+                data={servicosOrdenados}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listaConteudo}
+                renderItem={({ item }) => (
+                    <View style={styles.itemServico}>
+
+                        <View style={styles.itemCabecalho}>
+                            <View
+                                style={[
+                                    styles.itemBolinha,
+                                    { backgroundColor: corPorCategoria[item.categoria] },
+                                ]}
+                            />
+                            <Text style={styles.itemCategoria}>
+                                {labelPorCategoria[item.categoria]}
+                            </Text>
+                        </View>
+
+                        <Text style={styles.itemNome}>{item.nome}</Text>
+                        <Text style={styles.itemEndereco}>{item.endereco}</Text>
+
+                        <TouchableOpacity
+                            style={styles.ligarBotao}
+                            onPress={() => aoLigar(item.telefone)}
+                        >
+                            <Text style={styles.ligarTexto}>Ligar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            />
+        </View>
+    );
+}
+
 export default function MapaServicosScreen() {
+
+    /*
+     * semInternet: o celular está sem conexão (NetInfo).
+     * mapaIndisponivel: a internet "existe", mas o Leaflet
+     * não carregou dentro da WebView.
+     */
+    const [semInternet, setSemInternet] =
+        useState(false);
+
+    const [mapaIndisponivel, setMapaIndisponivel] =
+        useState(false);
+
+    useEffect(() => {
+
+        // Escuta mudanças de conexão enquanto a tela está aberta
+        const pararDeOuvir = NetInfo.addEventListener((estado) => {
+
+            const offline =
+                estado.isConnected === false ||
+                estado.isInternetReachable === false;
+
+            setSemInternet(offline);
+
+            // A conexão voltou: tenta mostrar o mapa de novo
+            if (!offline) {
+                setMapaIndisponivel(false);
+            }
+        });
+
+        return pararDeOuvir;
+
+    }, []);
 
     const [localizacaoAtual, setLocalizacaoAtual] =
         useState<Coordenada | null>(null);
@@ -681,6 +805,14 @@ export default function MapaServicosScreen() {
                 );
 
 
+            // O Leaflet não carregou: troca o mapa pela lista
+            if (
+                mensagem.tipo === 'MAPA_INDISPONIVEL'
+            ) {
+                setMapaIndisponivel(true);
+                return;
+            }
+
             if (
                 mensagem.tipo === 'ROTA'
             ) {
@@ -759,6 +891,16 @@ export default function MapaServicosScreen() {
         );
 
 
+    /*
+     * Sem internet: mostra só a lista de endereços.
+     * (fica depois de todos os hooks, porque o React
+     * exige que eles rodem sempre na mesma ordem)
+     */
+    if (semInternet || mapaIndisponivel) {
+        return <ListaServicosOffline aoLigar={ligarPara} />;
+    }
+
+
     return (
 
         <View style={styles.container}>
@@ -767,8 +909,14 @@ export default function MapaServicosScreen() {
 
             <WebView
                 source={{
-                    html: htmlMapa
+                    html: htmlMapa,
+                    // Dá uma origem à página: assim as requisições de tiles
+                    // levam o Referer exigido pela política do OpenStreetMap
+                    baseUrl: 'https://github.com/juliemartins1/ampara',
                 }}
+
+                // Identifica o app nas requisições (exigência do OSM para apps)
+                userAgent="Ampara/1.0 (+https://github.com/juliemartins1/ampara)"
 
                 style={styles.map}
 
@@ -988,6 +1136,64 @@ const styles = StyleSheet.create({
     container: {
 
         flex: 1,
+    },
+
+    // ---------- lista offline ----------
+    avisoOffline: {
+        margin: spacing.md,
+        marginBottom: spacing.sm,
+        padding: spacing.md,
+        borderRadius: radius.md,
+        backgroundColor: colors.primarySoft,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.warning,
+    },
+    avisoOfflineTitulo: {
+        ...typography.label,
+        fontSize: 15,
+    },
+    avisoOfflineTexto: {
+        ...typography.subtitle,
+        fontSize: 13,
+        marginTop: 4,
+    },
+    listaConteudo: {
+        paddingHorizontal: spacing.md,
+        paddingBottom: spacing.lg,
+    },
+    itemServico: {
+        backgroundColor: colors.surface,
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: colors.border,
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+    },
+    itemCabecalho: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    itemBolinha: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginRight: 6,
+    },
+    itemCategoria: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.textSecondary,
+    },
+    itemNome: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: colors.textPrimary,
+    },
+    itemEndereco: {
+        fontSize: 13,
+        color: colors.textSecondary,
+        marginTop: 2,
     },
 
 

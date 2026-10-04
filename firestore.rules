@@ -2,11 +2,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function ehModeradora() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/moderadoras/$(request.auth.uid));
+    }
+
     match /usuarias/{usuariaId} {
-      allow read, update, delete: if request.auth != null
-                                   && request.auth.uid == usuariaId;
+      allow read, delete: if request.auth != null
+                          && request.auth.uid == usuariaId;
+
+      // Ninguém cria a conta já com o e-mail verificado
       allow create: if request.auth != null
-                    && request.auth.uid == usuariaId;
+                    && request.auth.uid == usuariaId
+                    && request.resource.data.get('emailVerificado', false) == false;
+
+      // O e-mail é o login: não pode ser trocado por gravação no banco
+      allow update: if request.auth != null
+                    && request.auth.uid == usuariaId
+                    && request.resource.data.get('email', null) == resource.data.get('email', null);
 
       match /contatosConfianca/{contatoId} {
         allow read, write: if request.auth != null
@@ -14,9 +27,70 @@ service cloud.firestore {
       }
     }
 
+    // Código de verificação de e-mail (só o hash fica salvo)
+    match /verificacoesEmail/{usuariaId} {
+      allow read, write: if request.auth != null
+                          && request.auth.uid == usuariaId;
+    }
+
     match /artigos/{artigoId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    match /moderadoras/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /publicacoes/{publicacaoId} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['texto', 'categoria', 'status', 'autoraUid', 'criadaEm', 'denuncias'])
+        && request.resource.data.autoraUid == request.auth.uid
+        && request.resource.data.status == 'pendente'
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() > 0
+        && request.resource.data.texto.size() <= 1000
+        && request.resource.data.categoria in ['relato', 'apoio', 'dica']
+        && request.resource.data.denuncias == 0
+        && request.resource.data.criadaEm == request.time;
+
+      allow read: if request.auth != null && (
+        resource.data.status == 'aprovada'
+        || resource.data.autoraUid == request.auth.uid
+        || ehModeradora()
+      );
+
+      allow update: if
+        // Moderadora: muda status (aprovar/rejeitar/remover) ou zera denúncias (manter)
+        (ehModeradora()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'denuncias'])
+          && request.resource.data.status in ['pendente', 'aprovada', 'rejeitada'])
+        ||
+        // Usuária: só soma +1 em denuncias, numa publicação aprovada,
+        // e só se estiver criando a própria denúncia na mesma operação
+        (request.auth != null
+          && resource.data.status == 'aprovada'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['denuncias'])
+          && request.resource.data.denuncias == resource.data.denuncias + 1
+          && !exists(/databases/$(database)/documents/publicacoes/$(publicacaoId)/denuncias/$(request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/publicacoes/$(publicacaoId)/denuncias/$(request.auth.uid)));
+
+      allow delete: if ehModeradora();
+
+      // Uma denúncia por usuária: o ID do documento é o UID dela
+      match /denuncias/{uid} {
+        allow create: if request.auth != null
+          && request.auth.uid == uid
+          && get(/databases/$(database)/documents/publicacoes/$(publicacaoId)).data.status == 'aprovada'
+          && request.resource.data.keys().hasOnly(['motivo', 'criadaEm'])
+          && request.resource.data.motivo in ['dados_pessoais', 'ofensivo', 'falso', 'outro']
+          && request.resource.data.criadaEm == request.time;
+        allow read: if ehModeradora()
+          || (request.auth != null && request.auth.uid == uid);
+        allow update: if false;
+        allow delete: if ehModeradora();
+      }
     }
   }
 }
