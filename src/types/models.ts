@@ -40,3 +40,6 @@ export interface Publicacao {
     criadaEm: Timestamp | null;
     denuncias: number;
 }
+
+// ---- Relato: formas de violência da Lei Maria da Penha (art. 7º, I a V) ----
+export const TIPOS_VIOLENCIA = ['Física', 'Psicológica', 'Sexual', 'Patrimonial', 'Moral'];

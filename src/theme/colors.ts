@@ -2,11 +2,12 @@ export const colors = {
     //cores principais
     primary: '#8810b7',
     primaryDark: '#72268b',
-    primaryDeep: '#3d1450', // NOVO: roxo bem escuro, pra fundos de cartão tipo o mockup
+    primaryDeep: '#3d1450', // roxo bem escuro, pra fundos de cartão tipo o mockup
     primaryLight: '#8d51a3',
     primarySoft: '#F1E4F5',
     //cor de emergencia
     emergency: '#D64550',
+    emergencyDark: '#8e1f28',
     //neutros
     background: '#FBF8FC',
     surface: '#FFFFFF',
@@ -53,7 +54,7 @@ export const typography = {
         fontWeight: '600' as const,
         color: colors.textPrimary,
     },
-    input:{
+    input: {
         fontSize: 16,
         color: colors.textPrimary,
     },
@@ -62,11 +63,11 @@ export const typography = {
         fontWeight: '700' as const,
         color: colors.white,
     },
-    helper:{
+    helper: {
         fontSize: 12,
         color: colors.textSecondary,
     },
-    errorText:{
+    errorText: {
         fontSize: 12,
         color: colors.error,
     },

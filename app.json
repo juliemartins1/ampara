@@ -28,7 +28,20 @@
       }
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "O Ampara grava áudio quando o botão SOS é acionado.",
+          "enableBackgroundRecording": true
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Ampara usa a câmera para anexar fotos ao relato."
+        }
+      ]
     ]
   }
 }

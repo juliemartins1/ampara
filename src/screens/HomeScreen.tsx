@@ -1,24 +1,22 @@
 // src/screens/HomeScreen.tsx
 import React, { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    Linking,
-    Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { auth } from '../services/firebaseConfig';
+import { Contato, LIMITE_CONTATOS, ouvirContatos } from '../services/contatosService';
+import { ouvirUsuaria, sairDaConta } from '../services/usuariaService';
+import { abrirLink } from '../utils/abrirLink';
+import BotaoSOS from '../components/BotaoSOS';
 import { colors, spacing, radius, typography } from '../theme/colors';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
-import { auth, db } from '../services/firebaseConfig';
 
-import { Contato } from '../services/contatosService';
-
-const LIMITE_CONTATOS = 5;
+const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
+const TELEFONES = [
+    { numero: '180', rotulo: '180 Mulher' },
+    { numero: '190', rotulo: '190 Polícia' },
+];
+// Cores usadas para os avatares dos contatos, em rotação
+const CORES_AVATAR = [colors.primaryLight, colors.emergency, colors.warning, colors.sucess];
 
 interface AcaoRapidaProps {
     titulo: string;
@@ -31,41 +29,17 @@ interface AcaoRapidaProps {
 // Card reutilizável para os módulos da tela inicial
 function CardAcao({ titulo, subtitulo, icone, onPress, destaque }: AcaoRapidaProps) {
     return (
-        <TouchableOpacity
-            style={[styles.card, destaque && styles.cardDestaque]}
-            onPress={onPress}
-            activeOpacity={0.85}
-        >
-            <View
-                style={[
-                    styles.cardIconeContainer,
-                    destaque && styles.cardIconeContainerDestaque,
-                ]}
-            >
-                <Ionicons
-                    name={icone}
-                    size={20}
-                    color={destaque ? colors.white : colors.primaryDark}
-                />
+        <TouchableOpacity style={[styles.card, destaque && styles.cardDestaque]} onPress={onPress} activeOpacity={0.85}>
+            <View style={[styles.cardIcone, destaque && styles.cardIconeDestaque]}>
+                <Ionicons name={icone} size={20} color={destaque ? colors.white : colors.primaryDark} />
             </View>
             <View style={styles.cardTextos}>
-                <Text
-                    style={[styles.cardTitulo, destaque && styles.cardTituloDestaque]}
-                >
-                    {titulo}
-                </Text>
-                <Text
-                    style={[styles.cardSubtitulo, destaque && styles.cardSubtituloDestaque]}
-                >
-                    {subtitulo}
-                </Text>
+                <Text style={[styles.cardTitulo, destaque && styles.textoDestaque]}>{titulo}</Text>
+                <Text style={[styles.cardSubtitulo, destaque && styles.textoDestaque]}>{subtitulo}</Text>
             </View>
         </TouchableOpacity>
     );
 }
-
-// Cores usadas para os avatares dos contatos, em rotação
-const CORES_AVATAR = [colors.primaryLight, colors.emergency, colors.warning, colors.sucess];
 
 function iniciaisDoNome(nome: string) {
     const partes = nome.trim().split(' ').filter(Boolean);
@@ -76,47 +50,19 @@ function iniciaisDoNome(nome: string) {
 
 export default function HomeScreen({ navigation }: any) {
     const [nomeUsuaria, setNomeUsuaria] = useState('');
-    const [contatos, setContatos] = useState<Pick<Contato, 'id' | 'nome'>[]>([]);
+    const [contatos, setContatos] = useState<Contato[]>([]);
 
     useEffect(() => {
-        const usuariaId = auth.currentUser?.uid;
-        if (!usuariaId) return;
-
-        // onSnapshot = escuta em tempo real. Se a usuária editar o nome ou
-        // um contato, a Home já aparece atualizada ao voltar para ela.
-        const pararUsuaria = onSnapshot(
-            doc(db, 'usuarias', usuariaId),
-            (snap) => setNomeUsuaria((snap.data()?.nome || '').split(' ')[0]),
-            (erro) => console.error('Erro ao carregar dados da usuária:', erro)
-        );
-        const pararContatos = onSnapshot(
-            collection(db, 'usuarias', usuariaId, 'contatosConfianca'),
-            (snap) =>
-                setContatos(snap.docs.map((d) => ({ id: d.id, nome: d.data().nome || '' }))),
-            (erro) => console.error('Erro ao carregar contatos de confiança:', erro)
-        );
-
-        // Cancela as escutas quando a tela é fechada
+        if (!auth.currentUser) return;
+        // Escutas em tempo real dos serviços; ouvirContatos também atualiza
+        // a cópia local que o SOS usa sem internet.
+        const pararUsuaria = ouvirUsuaria((dados) => setNomeUsuaria((dados?.nome || '').split(' ')[0]));
+        const pararContatos = ouvirContatos(setContatos);
         return () => {
             pararUsuaria();
             pararContatos();
         };
     }, []);
-
-    function handleLigar(numero: string) {
-        Linking.openURL(`tel:${numero}`).catch((error) => {
-            console.error('Erro ao iniciar chamada:', error);
-            Alert.alert('Erro', 'Não foi possível abrir o discador.');
-        });
-    }
-
-    function handleEmergencia() {
-        // TODO: envio real do alerta (localização + SMS/WhatsApp) — próxima etapa.
-        Alert.alert(
-            'Botão de emergência',
-            'Essa funcionalidade ainda está sendo implementada. Em caso de emergência real, ligue para 190 (Polícia) ou 180 (Central de Atendimento à Mulher).'
-        );
-    }
 
     function handleSair() {
         Alert.alert('Sair da conta', 'Tem certeza que deseja sair?', [
@@ -126,10 +72,9 @@ export default function HomeScreen({ navigation }: any) {
                 style: 'destructive',
                 onPress: async () => {
                     try {
-                        await signOut(auth);
+                        await sairDaConta(); // apaga a cópia local dos contatos antes de sair
                         navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-                    } catch (error) {
-                        console.error('Erro ao sair:', error);
+                    } catch {
                         Alert.alert('Erro', 'Não foi possível sair da conta. Tente novamente.');
                     }
                 },
@@ -139,27 +84,14 @@ export default function HomeScreen({ navigation }: any) {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView
-                style={styles.container}
-                contentContainerStyle={styles.content}
-            >
+            <ScrollView style={styles.container} contentContainerStyle={styles.content}>
                 <View style={styles.headerBar}>
                     <Text style={styles.headerTitulo}>Ampara</Text>
                     <View style={styles.headerAcoes}>
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('Configuracoes')}
-                            style={styles.iconeHeader}
-                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                            accessibilityLabel="Configurações"
-                        >
+                        <TouchableOpacity onPress={() => navigation.navigate('Configuracoes')} hitSlop={HIT_SLOP} accessibilityLabel="Configurações">
                             <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={handleSair}
-                            style={styles.iconeHeader}
-                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                            accessibilityLabel="Sair"
-                        >
+                        <TouchableOpacity onPress={handleSair} hitSlop={HIT_SLOP} accessibilityLabel="Sair">
                             <Ionicons name="log-out-outline" size={22} color={colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
@@ -167,67 +99,39 @@ export default function HomeScreen({ navigation }: any) {
 
                 {/* Cartão principal roxo escuro */}
                 <View style={styles.cartaoPrincipal}>
-                    <Text style={styles.saudacao}>
-                        Olá{nomeUsuaria ? `, ${nomeUsuaria}` : ''}
-                    </Text>
-                    <Text style={styles.subtitle}>Você não está sozinha.</Text>
+                    <Text style={styles.saudacao}>Olá{nomeUsuaria ? `, ${nomeUsuaria}` : ''}</Text>
+                    <Text style={[styles.textoClaro, styles.subtitulo]}>Você não está sozinha.</Text>
 
-                    <TouchableOpacity
-                        style={styles.botaoEmergencia}
-                        onPress={handleEmergencia}
-                        activeOpacity={0.85}
-                        accessibilityRole="button"
-                        accessibilityLabel="Botão de emergência"
-                    >
-                        <Text style={styles.botaoEmergenciaTexto}>SOS</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.botaoEmergenciaLegenda}>
-                        Toque para acionar ajuda
-                    </Text>
+                    <BotaoSOS onAcionar={() => navigation.navigate('Emergencia')} />
+                    <Text style={[styles.textoClaro, styles.legendaSOS]}>Segure por 2 segundos para pedir ajuda</Text>
 
                     <View style={styles.linhaTelefones}>
-                        <TouchableOpacity
-                            style={styles.botaoTelefone}
-                            onPress={() => handleLigar('180')}
-                            activeOpacity={0.85}
-                        >
-                            <Ionicons name="call-outline" size={16} color={colors.white} />
-                            <Text style={styles.botaoTelefoneTexto}>180 Mulher</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.botaoTelefone}
-                            onPress={() => handleLigar('190')}
-                            activeOpacity={0.85}
-                        >
-                            <Ionicons name="call-outline" size={16} color={colors.white} />
-                            <Text style={styles.botaoTelefoneTexto}>190 Polícia</Text>
-                        </TouchableOpacity>
+                        {TELEFONES.map(({ numero, rotulo }) => (
+                            <TouchableOpacity
+                                key={numero}
+                                style={styles.botaoTelefone}
+                                onPress={() => abrirLink(`tel:${numero}`, 'discador')}
+                                activeOpacity={0.85}
+                            >
+                                <Ionicons name="call-outline" size={16} color={colors.white} />
+                                <Text style={styles.botaoTelefoneTexto}>{rotulo}</Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
 
-                    <Text style={styles.contatosLabel}>Contatos de confiança</Text>
+                    <Text style={styles.textoClaro}>Contatos de confiança</Text>
                     {contatos.length === 0 ? (
-                        <Text style={styles.avisoSemContatos}>
-                            Nenhum contato cadastrado. O SOS precisa de ao menos um.
-                        </Text>
+                        <Text style={styles.textoClaro}>Nenhum contato cadastrado. O SOS precisa de ao menos um.</Text>
                     ) : null}
                     <View style={styles.linhaContatos}>
                         {contatos.slice(0, LIMITE_CONTATOS).map((contato, index) => (
-                            <View
-                                key={contato.id}
-                                style={[
-                                    styles.avatarContato,
-                                    { backgroundColor: CORES_AVATAR[index % CORES_AVATAR.length] },
-                                ]}
-                            >
-                                <Text style={styles.avatarContatoTexto}>
-                                    {iniciaisDoNome(contato.nome)}
-                                </Text>
+                            <View key={contato.id} style={[styles.avatar, { backgroundColor: CORES_AVATAR[index % CORES_AVATAR.length] }]}>
+                                <Text style={styles.avatarTexto}>{iniciaisDoNome(contato.nome)}</Text>
                             </View>
                         ))}
                         {contatos.length < LIMITE_CONTATOS ? (
                             <TouchableOpacity
-                                style={styles.avatarAdicionar}
+                                style={[styles.avatar, styles.avatarAdicionar]}
                                 onPress={() => navigation.navigate('CadastroContatoConfianca')}
                                 accessibilityLabel="Adicionar contato de confiança"
                             >
@@ -238,7 +142,6 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
 
                 <Text style={styles.secaoTitulo}>Recursos</Text>
-
                 <CardAcao
                     titulo="Contatos de confiança"
                     subtitulo="Cadastre e gerencie quem deve ser avisado em uma emergência"
@@ -246,14 +149,12 @@ export default function HomeScreen({ navigation }: any) {
                     onPress={() => navigation.navigate('Contatos')}
                     destaque
                 />
-
                 <CardAcao
                     titulo="Direitos e Lei Maria da Penha"
                     subtitulo="Informações sobre seus direitos e sinais de relacionamento abusivo"
                     icone="book-outline"
                     onPress={() => navigation.navigate('Informacoes')}
                 />
-
                 <CardAcao
                     titulo="Delegacias e serviços próximos"
                     subtitulo="Encontre pontos de atendimento especializado perto de você"
@@ -272,33 +173,11 @@ export default function HomeScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.background,
-    },
-    content: {
-        padding: 20,
-        paddingBottom: 40,
-    },
-    headerBar: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    headerTitulo: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: colors.textPrimary,
-    },
-    headerAcoes: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    iconeHeader: {
-        padding: 4,
-    },
+    container: { flex: 1, backgroundColor: colors.background },
+    content: { padding: 20, paddingBottom: 40 },
+    headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+    headerTitulo: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+    headerAcoes: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     cartaoPrincipal: {
         backgroundColor: colors.primaryDeep,
         borderRadius: radius.lg,
@@ -306,50 +185,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: spacing.lg,
     },
-    saudacao: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: colors.white,
-        alignSelf: 'flex-start',
-    },
-    subtitle: {
-        fontSize: 13,
-        color: colors.primarySoft,
-        alignSelf: 'flex-start',
-        marginBottom: spacing.lg,
-    },
-    botaoEmergencia: {
-        width: 140,
-        height: 140,
-        borderRadius: 70,
-        backgroundColor: colors.emergency,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: spacing.sm,
-    },
-    botaoEmergenciaTexto: {
-        color: colors.white,
-        fontSize: 30,
-        fontWeight: '800',
-        letterSpacing: 2,
-    },
-    botaoEmergenciaLegenda: {
-        color: colors.primarySoft,
-        fontSize: 12,
-        marginBottom: spacing.lg,
-    },
-    avisoSemContatos: {
-        color: colors.primarySoft,
-        fontSize: 12,
-        alignSelf: 'flex-start',
-        marginBottom: spacing.sm,
-    },
-    linhaTelefones: {
-        flexDirection: 'row',
-        gap: spacing.sm,
-        marginBottom: spacing.lg,
-        width: '100%',
-    },
+    saudacao: { fontSize: 18, fontWeight: '700', color: colors.white, alignSelf: 'flex-start' },
+    // Texto lilás claro sobre o cartão escuro (subtítulo, legendas, avisos)
+    textoClaro: { color: colors.primarySoft, fontSize: 12, alignSelf: 'flex-start', marginBottom: spacing.sm },
+    subtitulo: { fontSize: 13, marginBottom: spacing.lg },
+    legendaSOS: { alignSelf: 'center', marginBottom: spacing.lg },
+    linhaTelefones: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg, width: '100%' },
     botaoTelefone: {
         flex: 1,
         flexDirection: 'row',
@@ -360,50 +201,17 @@ const styles = StyleSheet.create({
         borderRadius: radius.md,
         paddingVertical: 10,
     },
-    botaoTelefoneTexto: {
-        color: colors.white,
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    contatosLabel: {
-        color: colors.primarySoft,
-        fontSize: 12,
-        alignSelf: 'flex-start',
-        marginBottom: spacing.sm,
-    },
-    linhaContatos: {
-        flexDirection: 'row',
-        alignSelf: 'flex-start',
-        gap: spacing.sm,
-    },
-    avatarContato: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarContatoTexto: {
-        color: colors.white,
-        fontSize: 13,
-        fontWeight: '700',
-    },
+    botaoTelefoneTexto: { color: colors.white, fontSize: 13, fontWeight: '600' },
+    linhaContatos: { flexDirection: 'row', alignSelf: 'flex-start', gap: spacing.sm },
+    avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    avatarTexto: { color: colors.white, fontSize: 13, fontWeight: '700' },
     avatarAdicionar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
         backgroundColor: 'rgba(255,255,255,0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.4)',
         borderStyle: 'dashed',
     },
-    secaoTitulo: {
-        ...typography.label,
-        marginBottom: 8,
-        marginTop: 8,
-    },
+    secaoTitulo: { ...typography.label, marginVertical: spacing.sm },
     card: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -412,14 +220,11 @@ const styles = StyleSheet.create({
         borderRadius: radius.md,
         borderWidth: 1,
         borderColor: colors.border,
-        padding: 16,
+        padding: spacing.md,
         marginBottom: 12,
     },
-    cardDestaque: {
-        backgroundColor: colors.primarySoft,
-        borderColor: colors.primaryLight,
-    },
-    cardIconeContainer: {
+    cardDestaque: { backgroundColor: colors.primarySoft, borderColor: colors.primaryLight },
+    cardIcone: {
         width: 36,
         height: 36,
         borderRadius: 18,
@@ -427,27 +232,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    cardIconeContainerDestaque: {
-        backgroundColor: colors.primary,
-    },
-    cardTextos: {
-        flex: 1,
-    },
-    cardTitulo: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: colors.textPrimary,
-        marginBottom: 2,
-    },
-    cardTituloDestaque: {
-        color: colors.primaryDark,
-    },
-    cardSubtitulo: {
-        fontSize: 13,
-        color: colors.placeholder,
-    },
-    cardSubtituloDestaque: {
-        color: colors.primaryDark,
-        opacity: 0.8,
-    },
+    cardIconeDestaque: { backgroundColor: colors.primary },
+    cardTextos: { flex: 1 },
+    cardTitulo: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
+    cardSubtitulo: { fontSize: 13, color: colors.placeholder },
+    textoDestaque: { color: colors.primaryDark },
 });

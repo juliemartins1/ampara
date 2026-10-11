@@ -1,6 +1,6 @@
-// src/theme/formStyles.ts
+// src/theme/formStyle.ts
 // Estilos compartilhados pelas telas de formulário (login, cadastro,
-// contatos, perfil, senha). Antes cada tela tinha sua própria cópia.
+// contatos, perfil, senha, publicação, relato).
 import { StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from './colors';
 
@@ -53,4 +53,22 @@ export const formStyles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 14,
     },
+    // Chips de seleção (categoria da publicação, tipo de violência do relato)
+    chips: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.sm,
+        marginTop: spacing.xs,
+        marginBottom: spacing.md,
+    },
+    chip: {
+        borderWidth: 1,
+        borderColor: colors.primary,
+        borderRadius: radius.pill,
+        paddingVertical: 6,
+        paddingHorizontal: 14,
+    },
+    chipAtivo: { backgroundColor: colors.primary },
+    chipTexto: { color: colors.primary, fontWeight: '600' },
+    chipTextoAtivo: { color: colors.white },
 });
