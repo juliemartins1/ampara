@@ -104,22 +104,6 @@ export async function excluirConta(senha: string) {
     await deleteUser(user); // por último: sem login, o Firestore não deixaria apagar
 }
 
-/** Traduz os códigos de erro do Firebase Auth mais comuns. */
-export function mensagemErroAuth(codigo?: string): string {
-    switch (codigo) {
-        case 'auth/invalid-credential':
-        case 'auth/wrong-password':
-            return 'Senha incorreta.';
-        case 'auth/too-many-requests':
-            return 'Muitas tentativas. Aguarde um momento e tente novamente.';
-        case 'auth/network-request-failed':
-            return 'Falha de conexão. Verifique sua internet e tente novamente.';
-        case 'auth/weak-password':
-            return 'A nova senha é muito fraca. Use ao menos 6 caracteres.';
-        default:
-            return 'Não foi possível concluir. Tente novamente.';
-    }
-}
 /**
  * Troca a senha sem enviar e-mail. O Firebase exige login recente para
  * isso, então confirmamos a senha atual antes (reautenticação).

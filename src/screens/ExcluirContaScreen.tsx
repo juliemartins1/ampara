@@ -1,18 +1,13 @@
 // src/screens/ExcluirContaScreen.tsx
 // Exclusão definitiva da conta (LGPD e exigência da Google Play para apps com cadastro).
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ActivityIndicator,
-    Alert,
-    StyleSheet,
-} from 'react-native';
+import { View, Text, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { excluirConta, mensagemErroAuth } from '../services/usuariaService';
-import { colors, spacing, radius, typography } from '../theme/colors';
+import { excluirConta } from '../services/usuariaService';
+import Campo from '../components/Campo';
+import BotaoPrimario from '../components/BotaoPrimario';
+import { mensagemErroAuth } from '../utils/mensagemErroAuth';
+import { colors, spacing, radius } from '../theme/colors';
 
 export default function ExcluirContaScreen({ navigation }: any) {
     const [senha, setSenha] = useState('');
@@ -56,28 +51,20 @@ export default function ExcluirContaScreen({ navigation }: any) {
                 </Text>
             </View>
 
-            <Text style={typography.label}>Confirme sua senha</Text>
-            <TextInput
-                style={styles.input}
+            <Campo
+                label="Confirme sua senha"
+                placeholder="Sua senha atual"
                 value={senha}
                 onChangeText={setSenha}
                 secureTextEntry
-                placeholder="Sua senha atual"
-                placeholderTextColor={colors.placeholder}
             />
 
-            <TouchableOpacity
-                style={[styles.botao, excluindo && { opacity: 0.6 }]}
+            <BotaoPrimario
+                titulo="Excluir minha conta"
                 onPress={confirmar}
-                disabled={excluindo}
-                activeOpacity={0.85}
-            >
-                {excluindo ? (
-                    <ActivityIndicator color={colors.white} />
-                ) : (
-                    <Text style={typography.button}>Excluir minha conta</Text>
-                )}
-            </TouchableOpacity>
+                carregando={excluindo}
+                cor={colors.error}
+            />
         </View>
     );
 }
@@ -94,21 +81,4 @@ const styles = StyleSheet.create({
         marginBottom: spacing.lg,
     },
     avisoTexto: { flex: 1, color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
-    input: {
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: radius.md,
-        paddingHorizontal: spacing.md,
-        paddingVertical: 12,
-        marginTop: spacing.xs,
-        ...typography.input,
-    },
-    botao: {
-        backgroundColor: colors.error,
-        borderRadius: radius.md,
-        paddingVertical: 16,
-        alignItems: 'center',
-        marginTop: spacing.lg,
-    },
 });

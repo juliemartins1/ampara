@@ -15,21 +15,7 @@ import {
     MotivoDenuncia,
 } from '../services/moderacao';
 
-type Categoria = 'relato' | 'apoio' | 'dica';
-
-interface Publicacao {
-    id: string;
-    texto: string;
-    categoria: Categoria;
-    criadaEm: Timestamp | null;
-    denuncias: number;
-}
-
-const ROTULOS: Record<Categoria, string> = {
-    relato: 'Relato',
-    apoio: 'Apoio',
-    dica: 'Dica',
-};
+import { Publicacao, ROTULOS_CATEGORIA as ROTULOS } from '../types/models';
 
 // A partir de quantas denúncias a publicação some do mural até ser revisada
 const LIMITE_OCULTAR = 3;

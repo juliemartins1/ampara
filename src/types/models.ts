@@ -1,21 +1,42 @@
-export interface Usuaria{
-    uid?: string;
-    nome: string;
-    email: string;
-    senha?: string; //usado apenas no cadastro
-    bairro: string;
-    createdAt?:string;
-}
+// src/types/models.ts
+// Tipos usados em mais de um arquivo. Os tipos de usuária e contato
+// ficam junto dos serviços (usuariaService / contatosService).
+import type { Timestamp } from 'firebase/firestore';
 
+// ---- Contatos de confiança ----
 export type ParentescoContato =
-'Familiar'| 'Amigo(a)' | 'Vizinho(a)' |
-'Colega de trabalho' | 'Outro';
+    | 'Familiar'
+    | 'Amigo(a)'
+    | 'Vizinho(a)'
+    | 'Colega de trabalho'
+    | 'Outro';
 
-export interface ContatoConfianca{
-    id?: string;
-    usuariaId: string; 
-    nome: string;
-    telefone: string;
-    parentesco: ParentescoContato;
-    createdAt?:string;
+export const OPCOES_PARENTESCO: ParentescoContato[] = [
+    'Familiar',
+    'Amigo(a)',
+    'Vizinho(a)',
+    'Colega de trabalho',
+    'Outro',
+];
+
+// ---- Mural ----
+export type Categoria = 'relato' | 'apoio' | 'dica';
+
+export const ROTULOS_CATEGORIA: Record<Categoria, string> = {
+    relato: 'Relato',
+    apoio: 'Apoio',
+    dica: 'Dica',
+};
+
+export const CATEGORIAS = (Object.keys(ROTULOS_CATEGORIA) as Categoria[]).map((valor) => ({
+    valor,
+    rotulo: ROTULOS_CATEGORIA[valor],
+}));
+
+export interface Publicacao {
+    id: string;
+    texto: string;
+    categoria: Categoria;
+    criadaEm: Timestamp | null;
+    denuncias: number;
 }

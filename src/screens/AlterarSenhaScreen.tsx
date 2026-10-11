@@ -1,20 +1,13 @@
 // src/screens/AlterarSenhaScreen.tsx
 // Troca de senha dentro do app, sem enviar e-mail (mais discreto).
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-} from 'react-native';
-import { alterarSenha, mensagemErroAuth } from '../services/usuariaService';
-import { colors, spacing, radius, typography } from '../theme/colors';
+import { Alert } from 'react-native';
+import { alterarSenha } from '../services/usuariaService';
+import TelaFormulario from '../components/TelaFormulario';
+import Campo from '../components/Campo';
+import BotaoPrimario from '../components/BotaoPrimario';
+import { semErros, TAMANHO_MINIMO_SENHA } from '../utils/validacao';
+import { mensagemErroAuth } from '../utils/mensagemErroAuth';
 
 interface Erros {
     atual?: string;
@@ -32,11 +25,14 @@ export default function AlterarSenhaScreen({ navigation }: any) {
     function validar(): boolean {
         const novos: Erros = {};
         if (!senhaAtual) novos.atual = 'Informe sua senha atual.';
-        if (novaSenha.length < 6) novos.nova = 'A nova senha precisa ter ao menos 6 caracteres.';
-        else if (novaSenha === senhaAtual) novos.nova = 'A nova senha deve ser diferente da atual.';
+        if (novaSenha.length < TAMANHO_MINIMO_SENHA) {
+            novos.nova = `A nova senha precisa ter ao menos ${TAMANHO_MINIMO_SENHA} caracteres.`;
+        } else if (novaSenha === senhaAtual) {
+            novos.nova = 'A nova senha deve ser diferente da atual.';
+        }
         if (confirmar !== novaSenha) novos.confirmar = 'As senhas não conferem.';
         setErros(novos);
-        return Object.keys(novos).length === 0;
+        return semErros(novos);
     }
 
     async function salvar() {
@@ -55,86 +51,30 @@ export default function AlterarSenhaScreen({ navigation }: any) {
     }
 
     return (
-        <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-            <ScrollView
-                style={styles.container}
-                contentContainerStyle={styles.content}
-                keyboardShouldPersistTaps="handled"
-            >
-                <View style={styles.campo}>
-                    <Text style={typography.label}>Senha atual</Text>
-                    <TextInput
-                        style={[styles.input, erros.atual ? styles.inputErro : null]}
-                        value={senhaAtual}
-                        onChangeText={setSenhaAtual}
-                        secureTextEntry
-                    />
-                    {erros.atual ? <Text style={typography.errorText}>{erros.atual}</Text> : null}
-                </View>
-
-                <View style={styles.campo}>
-                    <Text style={typography.label}>Nova senha</Text>
-                    <TextInput
-                        style={[styles.input, erros.nova ? styles.inputErro : null]}
-                        value={novaSenha}
-                        onChangeText={setNovaSenha}
-                        secureTextEntry
-                        placeholder="Mínimo de 6 caracteres"
-                        placeholderTextColor={colors.placeholder}
-                    />
-                    {erros.nova ? <Text style={typography.errorText}>{erros.nova}</Text> : null}
-                </View>
-
-                <View style={styles.campo}>
-                    <Text style={typography.label}>Confirmar nova senha</Text>
-                    <TextInput
-                        style={[styles.input, erros.confirmar ? styles.inputErro : null]}
-                        value={confirmar}
-                        onChangeText={setConfirmar}
-                        secureTextEntry
-                    />
-                    {erros.confirmar ? <Text style={typography.errorText}>{erros.confirmar}</Text> : null}
-                </View>
-
-                <TouchableOpacity
-                    style={[styles.botao, salvando && { opacity: 0.6 }]}
-                    onPress={salvar}
-                    disabled={salvando}
-                    activeOpacity={0.85}
-                >
-                    {salvando ? (
-                        <ActivityIndicator color={colors.white} />
-                    ) : (
-                        <Text style={typography.button}>Alterar senha</Text>
-                    )}
-                </TouchableOpacity>
-            </ScrollView>
-        </KeyboardAvoidingView>
+        <TelaFormulario>
+            <Campo
+                label="Senha atual"
+                value={senhaAtual}
+                onChangeText={setSenhaAtual}
+                secureTextEntry
+                erro={erros.atual}
+            />
+            <Campo
+                label="Nova senha"
+                placeholder={`Mínimo de ${TAMANHO_MINIMO_SENHA} caracteres`}
+                value={novaSenha}
+                onChangeText={setNovaSenha}
+                secureTextEntry
+                erro={erros.nova}
+            />
+            <Campo
+                label="Confirmar nova senha"
+                value={confirmar}
+                onChangeText={setConfirmar}
+                secureTextEntry
+                erro={erros.confirmar}
+            />
+            <BotaoPrimario titulo="Alterar senha" onPress={salvar} carregando={salvando} />
+        </TelaFormulario>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
-    content: { padding: spacing.lg },
-    campo: { gap: spacing.xs, marginBottom: spacing.md },
-    input: {
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: radius.md,
-        paddingHorizontal: spacing.md,
-        paddingVertical: 12,
-        ...typography.input,
-    },
-    inputErro: { borderColor: colors.error },
-    botao: {
-        backgroundColor: colors.primary,
-        borderRadius: radius.md,
-        paddingVertical: 16,
-        alignItems: 'center',
-        marginTop: spacing.md,
-    },
-});

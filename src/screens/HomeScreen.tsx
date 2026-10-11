@@ -16,10 +16,7 @@ import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../services/firebaseConfig';
 
-interface Contato {
-    id: string;
-    nome: string;
-}
+import { Contato } from '../services/contatosService';
 
 const LIMITE_CONTATOS = 5;
 
@@ -79,7 +76,7 @@ function iniciaisDoNome(nome: string) {
 
 export default function HomeScreen({ navigation }: any) {
     const [nomeUsuaria, setNomeUsuaria] = useState('');
-    const [contatos, setContatos] = useState<Contato[]>([]);
+    const [contatos, setContatos] = useState<Pick<Contato, 'id' | 'nome'>[]>([]);
 
     useEffect(() => {
         const usuariaId = auth.currentUser?.uid;

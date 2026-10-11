@@ -2,30 +2,19 @@
 // Edição de nome, telefone e bairro. O e-mail não é editável porque é o
 // login da conta (trocar exigiria verificar o novo e-mail).
 import React, { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ScrollView,
-    KeyboardAvoidingView,
-    Platform,
-    ActivityIndicator,
-    Alert,
-    StyleSheet,
-} from 'react-native';
+import { View, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { getDoc, doc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { auth, db } from '../services/firebaseConfig';
 import { atualizarUsuaria } from '../services/usuariaService';
 import { validarTelefone } from '../utils/validarTelefone';
-import {
-    formatarTelefone,
-    telefoneParaExibicao,
-    telefoneParaSalvar,
-} from '../utils/formatarTelefone';
+import { formatarTelefone, telefoneParaExibicao, telefoneParaSalvar } from '../utils/formatarTelefone';
+import { semErros } from '../utils/validacao';
+import TelaFormulario from '../components/TelaFormulario';
+import Campo from '../components/Campo';
+import BotaoPrimario from '../components/BotaoPrimario';
 import SeletorBairro from '../components/SeletorBairro';
-import { colors, spacing, radius, typography } from '../theme/colors';
+import { colors } from '../theme/colors';
 
 interface Erros {
     nome?: string;
@@ -62,7 +51,7 @@ export default function EditarPerfilScreen({ navigation }: any) {
         if (!tel.valido) novos.telefone = tel.mensagem;
         if (!bairro) novos.bairro = 'Selecione seu bairro.';
         setErros(novos);
-        return Object.keys(novos).length === 0;
+        return semErros(novos);
     }
 
     async function salvar() {
@@ -96,91 +85,39 @@ export default function EditarPerfilScreen({ navigation }: any) {
     }
 
     return (
-        <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-            <ScrollView
-                style={styles.container}
-                contentContainerStyle={styles.content}
-                keyboardShouldPersistTaps="handled"
-            >
-                <View style={styles.campo}>
-                    <Text style={typography.label}>Nome completo</Text>
-                    <TextInput
-                        style={[styles.input, erros.nome ? styles.inputErro : null]}
-                        value={nome}
-                        onChangeText={setNome}
-                        autoCapitalize="words"
-                    />
-                    {erros.nome ? <Text style={typography.errorText}>{erros.nome}</Text> : null}
-                </View>
-
-                <View style={styles.campo}>
-                    <Text style={typography.label}>E-mail</Text>
-                    <TextInput
-                        style={[styles.input, styles.inputDesativado]}
-                        value={auth.currentUser?.email ?? ''}
-                        editable={false}
-                    />
-                    <Text style={typography.helper}>
-                        O e-mail é usado para entrar na conta e não pode ser alterado.
-                    </Text>
-                </View>
-
-                <View style={styles.campo}>
-                    <Text style={typography.label}>Telefone</Text>
-                    <TextInput
-                        style={[styles.input, erros.telefone ? styles.inputErro : null]}
-                        value={telefone}
-                        onChangeText={(v) => setTelefone(formatarTelefone(v))}
-                        keyboardType="phone-pad"
-                        placeholder="(53) 99999-9999"
-                        placeholderTextColor={colors.placeholder}
-                    />
-                    {erros.telefone ? <Text style={typography.errorText}>{erros.telefone}</Text> : null}
-                </View>
-
-                <SeletorBairro valor={bairro} aoSelecionar={setBairro} erro={erros.bairro} />
-
-                <TouchableOpacity
-                    style={[styles.botao, salvando && { opacity: 0.6 }]}
-                    onPress={salvar}
-                    disabled={salvando}
-                    activeOpacity={0.85}
-                >
-                    {salvando ? (
-                        <ActivityIndicator color={colors.white} />
-                    ) : (
-                        <Text style={typography.button}>Salvar alterações</Text>
-                    )}
-                </TouchableOpacity>
-            </ScrollView>
-        </KeyboardAvoidingView>
+        <TelaFormulario>
+            <Campo
+                label="Nome completo"
+                value={nome}
+                onChangeText={setNome}
+                autoCapitalize="words"
+                erro={erros.nome}
+            />
+            <Campo
+                label="E-mail"
+                value={auth.currentUser?.email ?? ''}
+                editable={false}
+                ajuda="O e-mail é usado para entrar na conta e não pode ser alterado."
+            />
+            <Campo
+                label="Telefone"
+                placeholder="(53) 99999-9999"
+                value={telefone}
+                onChangeText={(v) => setTelefone(formatarTelefone(v))}
+                keyboardType="phone-pad"
+                erro={erros.telefone}
+            />
+            <SeletorBairro valor={bairro} aoSelecionar={setBairro} erro={erros.bairro} />
+            <BotaoPrimario titulo="Salvar alterações" onPress={salvar} carregando={salvando} />
+        </TelaFormulario>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
-    content: { padding: spacing.lg },
-    centro: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-    campo: { gap: spacing.xs, marginBottom: spacing.md },
-    input: {
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: radius.md,
-        paddingHorizontal: spacing.md,
-        paddingVertical: 12,
-        ...typography.input,
-    },
-    inputErro: { borderColor: colors.error },
-    inputDesativado: { backgroundColor: colors.primarySoft, color: colors.textSecondary },
-    botao: {
-        backgroundColor: colors.primary,
-        borderRadius: radius.md,
-        paddingVertical: 16,
+    centro: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
-        marginTop: spacing.md,
+        backgroundColor: colors.background,
     },
 });

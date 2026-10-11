@@ -5,13 +5,7 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { colors, spacing, radius, typography } from '../theme/colors';
 import { auth, db } from '../services/firebaseConfig'; // ajuste se os nomes exportados forem outros
 
-type Categoria = 'relato' | 'apoio' | 'dica';
-
-const CATEGORIAS: { valor: Categoria; rotulo: string }[] = [
-    { valor: 'relato', rotulo: 'Relato' },
-    { valor: 'apoio', rotulo: 'Apoio' },
-    { valor: 'dica', rotulo: 'Dica' },
-];
+import { Categoria, CATEGORIAS } from '../types/models';
 
 const LIMITE = 1000;
 // Detecta algo parecido com telefone (com ou sem DDD) para proteger a identidade

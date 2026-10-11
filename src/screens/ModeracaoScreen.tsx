@@ -1,22 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { ehModeradora } from '../services/moderacao';
 import { colors, spacing, radius, typography } from '../theme/colors';
 
-type Categoria = 'relato' | 'apoio' | 'dica';
+import { Publicacao, ROTULOS_CATEGORIA as ROTULOS } from '../types/models';
+
 type Aba = 'pendentes' | 'denunciadas';
-
-interface Publicacao {
-    id: string;
-    texto: string;
-    categoria: Categoria;
-    criadaEm: Timestamp | null;
-    denuncias: number;
-}
-
-const ROTULOS: Record<Categoria, string> = { relato: 'Relato', apoio: 'Apoio', dica: 'Dica' };
 
 export default function ModeracaoScreen() {
     const [autorizada, setAutorizada] = useState<boolean | null>(null);
