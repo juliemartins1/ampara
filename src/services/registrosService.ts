@@ -69,26 +69,31 @@ export function apagarRegistro(uri: string) {
     return FileSystem.deleteAsync(uri, { idempotent: true });
 }
 
-// Tipo de cada arquivo, para o app de destino reconhecer o áudio
-const TIPOS_MIME: Record<string, string> = {
-    m4a: 'audio/mp4',
-    jpg: 'image/jpeg',
-    pdf: 'application/pdf',
-};
-
 // Envia vários arquivos de uma vez: ela escolhe a pessoa uma vez só.
-// A react-native-share só existe no APK; o import fica aqui dentro para
-// o resto do app (inclusive o SOS) continuar abrindo no Expo Go.
+// Os arquivos são copiados para o cache do app (também privado) porque é a pasta
+// que a react-native-share consegue compartilhar; a cópia mantém o nome e a
+// extensão (.pdf, .m4a), para o celular de quem recebe saber abrir.
+// A biblioteca só existe no APK; o import fica aqui dentro para o resto do app
+// (inclusive o SOS) continuar abrindo no Expo Go.
+const PASTA_ENVIO = `${FileSystem.cacheDirectory}envio/`;
+
 export async function compartilharRegistros(uris: string[]) {
     const { default: Share } = await import('react-native-share');
-    const conteudos = await Promise.all(
-        uris.map(async (uri) => `data:${TIPOS_MIME[uri.split('.').pop() ?? '']};base64,${await lerEmBase64(uri)}`)
+
+    // Apaga as cópias do envio anterior e prepara as novas
+    await FileSystem.deleteAsync(PASTA_ENVIO, { idempotent: true });
+    await FileSystem.makeDirectoryAsync(PASTA_ENVIO, { intermediates: true });
+    const copias = await Promise.all(
+        uris.map(async (uri) => {
+            const copia = PASTA_ENVIO + nomeDoArquivo(uri);
+            await FileSystem.copyAsync({ from: uri, to: copia });
+            return copia;
+        })
     );
+
     await Share.open({
         title: 'Enviar para quem pode ajudar',
-        urls: conteudos,
-        filenames: uris.map((uri) => nomeDoArquivo(uri).split('.')[0]),
-        useInternalStorage: true, // cópia temporária fica na área privada do app
+        urls: copias,
         failOnCancel: false,
     });
 }

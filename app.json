@@ -42,7 +42,8 @@
           "barcodeScannerEnabled": false,
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }
