@@ -17,6 +17,7 @@ import {
     serverTimestamp,
     updateDoc,
 } from 'firebase/firestore';
+import { CHAVE_ULTIMA_LOCALIZACAO } from './alertaService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from './firebaseConfig';
 import { CHAVE_CACHE_CONTATOS } from './contatosService';
@@ -62,7 +63,7 @@ export function enviarEmailRedefinicaoSenha(email: string) {
 
 /** Apaga dados locais sensíveis antes de sair (outra pessoa pode usar o celular). */
 async function limparDadosLocais() {
-    await AsyncStorage.removeItem(CHAVE_CACHE_CONTATOS).catch(() => { });
+    await AsyncStorage.multiRemove([CHAVE_CACHE_CONTATOS, CHAVE_ULTIMA_LOCALIZACAO]).catch(() => { });
 }
 
 export async function sairDaConta() {
