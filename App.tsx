@@ -6,13 +6,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './src/services/firebaseConfig';
 import { emailFoiVerificado } from './src/services/verificarEmailService';
-import { getDisguiseModeEnabled } from './src/services/disguiseMode';
-import { colors } from './src/theme/colors';
 import CadastroUsuariaScreen from './src/screens/CadastroUsuariaScreen';
 import CadastroContatoConfiancaScreen from './src/screens/CadastroContatoConfiancaScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
-import EmergenciaScreen from './src/screens/EmergenciaScreen';
 import InformacoesScreen from './src/screens/InformacoesScreen';
 import AlterarSenhaScreen from './src/screens/AlterarSenhaScreen';
 import ArtigoDetalheScreen from './src/screens/ArtigoDetalheScreen';
@@ -23,10 +20,15 @@ import ContatosScreen from './src/screens/ContatosScreen';
 import PerfilScreen from './src/screens/PerfilScreen';
 import EditarPerfilScreen from './src/screens/EditarPerfilScreen';
 import VerificarEmailScreen from './src/screens/VerificarEmailScreen';
+import { getDisguiseModeEnabled } from './src/services/disguiseMode';
+import { colors } from './src/theme/colors';
 import ExcluirContaScreen from './src/screens/ExcluirContaScreen';
 import NovaPublicacaoScreen from './src/screens/NovaPublicacaoScreen';
 import MuralScreen from './src/screens/MuralScreen';
 import ModeracaoScreen from './src/screens/ModeracaoScreen';
+import EmergenciaScreen from './src/screens/EmergenciaScreen';
+import RegistrosScreen from './src/screens/RegistrosScreen';
+import RelatoScreen from './src/screens/RelatoScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -68,7 +70,6 @@ export default function App() {
         <Stack.Screen name="CadastroUsuaria" component={CadastroUsuariaScreen} options={{ title: 'Criar conta' }} />
         <Stack.Screen name="VerificarEmail" component={VerificarEmailScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Emergencia" component={EmergenciaScreen} options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="CadastroContatoConfianca" component={CadastroContatoConfiancaScreen} options={{ title: 'Contato de confiança' }} />
         <Stack.Screen name="Perfil" component={PerfilScreen} options={{ title: 'Meu perfil' }} />
         <Stack.Screen name="EditarPerfil" component={EditarPerfilScreen} options={{ title: 'Editar meus dados' }} />
@@ -82,6 +83,9 @@ export default function App() {
         <Stack.Screen name="NovaPublicacao" component={NovaPublicacaoScreen} options={{ title: 'Nova publicação' }} />
         <Stack.Screen name="Moderacao" component={ModeracaoScreen} options={{ title: 'Moderação' }} />
         <Stack.Screen name="Mural" component={MuralScreen} options={{ title: 'Comunidade' }} />
+        <Stack.Screen name="Emergencia" component={EmergenciaScreen} options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="Registros" component={RegistrosScreen} options={{ title: 'Meus registros' }} />
+        <Stack.Screen name="Relato" component={RelatoScreen} options={{ title: 'Relato de ocorrência' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

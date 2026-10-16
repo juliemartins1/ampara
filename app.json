@@ -17,7 +17,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "br.edu.ifrs.riogrande.ampara"
+      "package": "br.edu.ifrs.riogrande.ampara",
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -28,7 +29,20 @@
       }
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "enableBackgroundRecording": true
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "barcodeScannerEnabled": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ]
   }
 }

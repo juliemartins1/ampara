@@ -8,6 +8,7 @@ import { Contato, LIMITE_CONTATOS, ouvirContatos } from '../services/contatosSer
 import { ouvirUsuaria, sairDaConta } from '../services/usuariaService';
 import { abrirLink } from '../utils/abrirLink';
 import BotaoSOS from '../components/BotaoSOS';
+import BotaoPrimario from '../components/BotaoPrimario';
 import { colors, spacing, radius, typography } from '../theme/colors';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
@@ -103,6 +104,11 @@ export default function HomeScreen({ navigation }: any) {
                     <Text style={[styles.textoClaro, styles.subtitulo]}>Você não está sozinha.</Text>
 
                     <BotaoSOS onAcionar={() => navigation.navigate('Emergencia')} />
+                    <BotaoPrimario
+                        titulo="Meus registros"
+                        onPress={() => navigation.navigate('Registros')}
+                        style={{ marginTop: 16 }}
+                    />
                     <Text style={[styles.textoClaro, styles.legendaSOS]}>Segure por 2 segundos para pedir ajuda</Text>
 
                     <View style={styles.linhaTelefones}>
