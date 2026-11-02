@@ -12,6 +12,7 @@ import {
     tipoDoRegistro,
     descreverRegistro,
     compartilharRegistros,
+    abrirRelato,
     apagarRegistro,
 } from '../services/registrosService';
 import { colors, spacing, radius, typography } from '../theme/colors';
@@ -32,6 +33,13 @@ export default function RegistrosScreen({ navigation }: any) {
     function ouvir(uri: string) {
         player.replace({ uri });
         player.play();
+    }
+
+    function abrir(uri: string) {
+        abrirRelato(uri).catch((erro) => {
+            console.log('Erro ao abrir o PDF:', erro);
+            Alert.alert('Relato', 'Não foi possível abrir o PDF agora.');
+        });
     }
 
     function enviar(uri: string) {
@@ -85,6 +93,11 @@ export default function RegistrosScreen({ navigation }: any) {
                         {tipo === 'audio' && (
                             <TouchableOpacity onPress={() => ouvir(item)} accessibilityLabel="Ouvir">
                                 <Ionicons name="play" size={22} color={colors.primaryDark} />
+                            </TouchableOpacity>
+                        )}
+                        {tipo === 'relato' && (
+                            <TouchableOpacity onPress={() => abrir(item)} accessibilityLabel="Abrir o PDF">
+                                <Ionicons name="eye" size={22} color={colors.primaryDark} />
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity onPress={() => enviar(item)} accessibilityLabel="Enviar">

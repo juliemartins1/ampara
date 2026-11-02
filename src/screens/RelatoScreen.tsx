@@ -15,6 +15,7 @@ import {
     guardarRegistro,
     guardarRegistroBase64,
     compartilharRegistros,
+    abrirRelato,
     lerEmBase64,
     listarRegistros,
     tipoDoRegistro,
@@ -126,6 +127,7 @@ export default function RelatoScreen({ navigation }: any) {
             const pdf = await guardarRegistroBase64(base64!, 'relato', 'pdf');
             Alert.alert('Relato salvo', 'O PDF está em Meus registros.', [
                 { text: 'OK', onPress: () => navigation.goBack() },
+                { text: 'Abrir', onPress: () => abrirRelato(pdf).catch(() => { }).finally(() => navigation.goBack()) },
                 { text: 'Enviar agora', onPress: () => enviar(pdf) },
             ]);
         } catch (erro) {

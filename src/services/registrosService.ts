@@ -3,6 +3,7 @@
 // Essa pasta não aparece na galeria nem no gerenciador de arquivos:
 // só o Ampara consegue abrir. Nada disso vai para o Firebase.
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Print from 'expo-print';
 
 export type TipoRegistro = 'audio' | 'foto' | 'relato';
 
@@ -63,6 +64,13 @@ export function descreverRegistro(uri: string): string {
 
 export function lerEmBase64(uri: string) {
     return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+}
+
+// Abre o PDF na visualização do próprio Android, dentro do app (funciona sem
+// internet e no Expo Go). Vai em base64 porque é o formato que o expo-print
+// aceita em todas as versões do Android.
+export async function abrirRelato(uri: string) {
+    await Print.printAsync({ uri: `data:application/pdf;base64,${await lerEmBase64(uri)}` });
 }
 
 export function apagarRegistro(uri: string) {
