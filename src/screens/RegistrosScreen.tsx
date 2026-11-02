@@ -2,9 +2,10 @@
 // Lista os áudios do SOS, as fotos e os relatos em PDF guardados na pasta interna.
 // Permite abrir (ouvir o áudio, ver a foto, ler o PDF), enviar e apagar.
 // Nada aqui fica na galeria do celular.
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, Image, Modal, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAudioPlayer } from 'expo-audio';
@@ -14,7 +15,7 @@ import {
     tipoDoRegistro,
     descreverRegistro,
     compartilharRegistros,
-    abrirRelato,
+    lerVisualizacao,
     apagarRegistro,
 } from '../services/registrosService';
 import { colors, spacing, radius, typography } from '../theme/colors';
@@ -23,9 +24,12 @@ const ICONES = { audio: 'mic', foto: 'image', relato: 'document-text' } as const
 // Ícone do botão "abrir" de cada tipo
 const ICONES_ABRIR = { audio: 'play', foto: 'expand', relato: 'eye' } as const;
 
-export default function RegistrosScreen({ navigation }: any) {
+// O que está aberto em tela cheia: uma foto ou o HTML de um relato
+type Aberto = { foto: string } | { html: string } | null;
+
+export default function RegistrosScreen({ navigation, route }: any) {
     const [registros, setRegistros] = useState<string[]>([]);
-    const [fotoAberta, setFotoAberta] = useState<string | null>(null);
+    const [aberto, setAberto] = useState<Aberto>(null);
     const player = useAudioPlayer(null);
 
     // Recarrega ao voltar da tela de relato
@@ -35,21 +39,28 @@ export default function RegistrosScreen({ navigation }: any) {
         }, [])
     );
 
-    // Áudio: toca aqui mesmo | Foto: tela cheia | Relato: visualização do PDF
-    function abrir(uri: string) {
+    // Áudio: toca aqui mesmo | Foto e relato: tela cheia dentro do app
+    async function abrir(uri: string) {
         const tipo = tipoDoRegistro(uri);
         if (tipo === 'audio') {
             player.replace({ uri });
             player.play();
         } else if (tipo === 'foto') {
-            setFotoAberta(uri);
+            setAberto({ foto: uri });
         } else {
-            abrirRelato(uri).catch((erro) => {
-                console.log('Erro ao abrir o PDF:', erro);
-                Alert.alert('Relato', 'Não foi possível abrir o PDF agora.');
-            });
+            const html = await lerVisualizacao(uri).catch(() => null);
+            if (html) setAberto({ html });
+            else Alert.alert('Relato', 'Este relato foi criado antes da visualização no app. Ele ainda pode ser enviado.');
         }
     }
+
+    // Vindo da tela de relato com "Abrir": abre o relato recém-criado
+    useEffect(() => {
+        if (route.params?.abrir) {
+            abrir(route.params.abrir);
+            navigation.setParams({ abrir: undefined });
+        }
+    }, [route.params?.abrir]);
 
     function enviar(uri: string) {
         compartilharRegistros([uri]).catch((erro) => {
@@ -121,14 +132,19 @@ export default function RegistrosScreen({ navigation }: any) {
                 }}
             />
 
-            {/* Foto em tela cheia, sem passar pela galeria */}
-            <Modal visible={fotoAberta !== null} animationType="fade" onRequestClose={() => setFotoAberta(null)}>
+            {/* Foto ou relato em tela cheia, sem passar pela galeria nem por outro app */}
+            <Modal visible={aberto !== null} animationType="fade" onRequestClose={() => setAberto(null)}>
                 <SafeAreaView style={styles.fundoFoto}>
-                    {fotoAberta && <Image source={{ uri: fotoAberta }} style={styles.fotoCheia} resizeMode="contain" />}
+                    {aberto && 'foto' in aberto && (
+                        <Image source={{ uri: aberto.foto }} style={styles.fotoCheia} resizeMode="contain" />
+                    )}
+                    {aberto && 'html' in aberto && (
+                        <WebView source={{ html: aberto.html }} originWhitelist={['*']} style={styles.fotoCheia} />
+                    )}
                     <TouchableOpacity
                         style={styles.fecharFoto}
-                        onPress={() => setFotoAberta(null)}
-                        accessibilityLabel="Fechar foto"
+                        onPress={() => setAberto(null)}
+                        accessibilityLabel="Fechar"
                     >
                         <Ionicons name="close" size={32} color={colors.white} />
                     </TouchableOpacity>
@@ -158,5 +174,13 @@ const styles = StyleSheet.create({
     miniatura: { width: 40, height: 40, borderRadius: radius.sm },
     fundoFoto: { flex: 1, backgroundColor: colors.black },
     fotoCheia: { flex: 1 },
-    fecharFoto: { position: 'absolute', top: spacing.xl, right: spacing.md, padding: spacing.sm },
+    // Fundo escuro: o X precisa aparecer tanto sobre a foto quanto sobre o relato (fundo branco)
+    fecharFoto: {
+        position: 'absolute',
+        top: spacing.xl,
+        right: spacing.md,
+        padding: spacing.xs,
+        borderRadius: radius.pill,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+    },
 });

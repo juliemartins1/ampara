@@ -3,7 +3,6 @@
 // Essa pasta não aparece na galeria nem no gerenciador de arquivos:
 // só o Ampara consegue abrir. Nada disso vai para o Firebase.
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Print from 'expo-print';
 
 export type TipoRegistro = 'audio' | 'foto' | 'relato';
 
@@ -66,15 +65,27 @@ export function lerEmBase64(uri: string) {
     return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
 }
 
-// Abre o PDF na visualização do próprio Android, dentro do app (funciona sem
-// internet e no Expo Go). Vai em base64 porque é o formato que o expo-print
-// aceita em todas as versões do Android.
-export async function abrirRelato(uri: string) {
-    await Print.printAsync({ uri: `data:application/pdf;base64,${await lerEmBase64(uri)}` });
+// Cópia em HTML de cada relato, para ler dentro do app (numa WebView).
+// O Android não mostra PDF dentro de apps, e a pré-visualização de impressão
+// travava em "Preparando visualização". Fica numa pasta à parte, fora da lista.
+const PASTA_VISUALIZACAO = `${FileSystem.documentDirectory}visualizacao/`;
+const visualizacaoDe = (pdf: string) => `${PASTA_VISUALIZACAO}${nomeDoArquivo(pdf)}.html`;
+
+export async function guardarVisualizacao(pdf: string, html: string) {
+    await FileSystem.makeDirectoryAsync(PASTA_VISUALIZACAO, { intermediates: true });
+    await FileSystem.writeAsStringAsync(visualizacaoDe(pdf), html);
 }
 
-export function apagarRegistro(uri: string) {
-    return FileSystem.deleteAsync(uri, { idempotent: true });
+// HTML do relato, ou null se ele foi gerado antes de existir a visualização
+export async function lerVisualizacao(pdf: string): Promise<string | null> {
+    const destino = visualizacaoDe(pdf);
+    const { exists } = await FileSystem.getInfoAsync(destino);
+    return exists ? FileSystem.readAsStringAsync(destino) : null;
+}
+
+export async function apagarRegistro(uri: string) {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+    await FileSystem.deleteAsync(visualizacaoDe(uri), { idempotent: true });
 }
 
 // Envia vários arquivos de uma vez: ela escolhe a pessoa uma vez só.

@@ -15,7 +15,7 @@ import {
     guardarRegistro,
     guardarRegistroBase64,
     compartilharRegistros,
-    abrirRelato,
+    guardarVisualizacao,
     lerEmBase64,
     listarRegistros,
     tipoDoRegistro,
@@ -39,7 +39,8 @@ async function montarHtml({ quando, onde, tipos, descricao, fotos, audios }: Dad
     const imagens = await Promise.all(
         fotos.map(async (uri) => `<img src="data:image/jpeg;base64,${await lerEmBase64(uri)}">`)
     );
-    return `<html><head><meta charset="utf-8"><style>
+    return `<html><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"><style>
         body { font-family: sans-serif; padding: 24px; color: #2e2033; }
         h1 { font-size: 20px; } h2 { font-size: 15px; margin: 18px 0 4px; }
         p { font-size: 13px; line-height: 1.5; margin: 0; }
@@ -120,14 +121,14 @@ export default function RelatoScreen({ navigation }: any) {
         setGerando(true);
         try {
             // O PDF volta em base64 e é gravado direto na pasta interna
-            const { base64 } = await Print.printToFileAsync({
-                html: await montarHtml({ quando, onde, tipos, descricao, fotos, audios: anexos }),
-                base64: true,
-            });
+            const html = await montarHtml({ quando, onde, tipos, descricao, fotos, audios: anexos });
+            const { base64 } = await Print.printToFileAsync({ html, base64: true });
             const pdf = await guardarRegistroBase64(base64!, 'relato', 'pdf');
+            await guardarVisualizacao(pdf, html); // para ler dentro do app
             Alert.alert('Relato salvo', 'O PDF está em Meus registros.', [
                 { text: 'OK', onPress: () => navigation.goBack() },
-                { text: 'Abrir', onPress: () => abrirRelato(pdf).catch(() => { }).finally(() => navigation.goBack()) },
+                // Volta para Meus registros já abrindo o relato
+                { text: 'Abrir', onPress: () => navigation.navigate('Registros', { abrir: pdf }) },
                 { text: 'Enviar agora', onPress: () => enviar(pdf) },
             ]);
         } catch (erro) {
