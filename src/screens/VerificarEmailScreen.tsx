@@ -1,47 +1,50 @@
 // src/screens/VerificarEmailScreen.tsx
-// Tela onde a usuária digita o código de 6 dígitos enviado por e-mail.
-// Aparece depois do cadastro e sempre que usuarias/{uid}.emailVerificado não for true.
-import React, { useEffect, useRef, useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-} from 'react-native';
+// Aparece depois do cadastro e sempre que a conta ainda não foi verificada.
+// A usuária toca no link do e-mail e volta para o app: ao voltar, o app
+// confere sozinho (ou ela toca em "Já confirmei").
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, AppState, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '../services/firebaseConfig';
-import { confirmarSaida } from '../utils/confirmarSaida';
 import {
     ESPERA_REENVIO_S,
-    confirmarCodigo,
-    enviarCodigo,
-    existeCodigoValido,
+    emailFoiVerificado,
+    enviarLinkVerificacao,
 } from '../services/verificarEmailService';
+import BotaoPrimario from '../components/BotaoPrimario';
+import { confirmarSaida } from '../utils/confirmarSaida';
+import { mensagemErroAuth } from '../utils/mensagemErroAuth';
 import { colors, spacing, radius, typography } from '../theme/colors';
-
-const TAMANHO_CODIGO = 6;
 
 export default function VerificarEmailScreen({ navigation }: any) {
     const email = auth.currentUser?.email ?? '';
-    const inputRef = useRef<TextInput>(null);
-    const [codigo, setCodigo] = useState('');
-    const [erro, setErro] = useState('');
-    const [verificando, setVerificando] = useState(false);
+    const [aviso, setAviso] = useState('');
+    const [conferindo, setConferindo] = useState(false);
     const [enviando, setEnviando] = useState(false);
     const [segundosReenvio, setSegundosReenvio] = useState(0);
 
-    // Ao abrir: só envia um código novo se não houver um ainda válido
+    async function conferir(avisarSeNao: boolean) {
+        setConferindo(true);
+        try {
+            if (await emailFoiVerificado()) {
+                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+            } else if (avisarSeNao) {
+                setAviso('Ainda não recebemos a confirmação. Toque no link do e-mail e tente de novo.');
+            }
+        } finally {
+            setConferindo(false);
+        }
+    }
+
+    // Quando ela volta do aplicativo de e-mail para o Ampara, confere sozinho
     useEffect(() => {
-        existeCodigoValido()
-            .then((valido) => (valido ? setSegundosReenvio(ESPERA_REENVIO_S) : reenviar()))
-            .catch(() => reenviar());
+        const sub = AppState.addEventListener('change', (estado) => {
+            if (estado === 'active') conferir(false);
+        });
+        return () => sub.remove();
     }, []);
 
-    // Contagem regressiva do "Reenviar código"
+    // Contagem regressiva do "Reenviar e-mail"
     useEffect(() => {
         if (segundosReenvio <= 0) return;
         const t = setTimeout(() => setSegundosReenvio((s) => s - 1), 1000);
@@ -50,106 +53,39 @@ export default function VerificarEmailScreen({ navigation }: any) {
 
     async function reenviar() {
         setEnviando(true);
-        setErro('');
-        setCodigo('');
+        setAviso('');
         try {
-            await enviarCodigo();
+            await enviarLinkVerificacao();
             setSegundosReenvio(ESPERA_REENVIO_S);
-        } catch (e) {
-            console.error('Erro ao enviar código:', e);
-            setErro('Não foi possível enviar o código. Verifique sua internet e tente novamente.');
+            setAviso('E-mail reenviado.');
+        } catch (e: any) {
+            console.error('Erro ao reenviar link:', e);
+            setAviso(mensagemErroAuth(e?.code));
         } finally {
             setEnviando(false);
         }
     }
 
-    async function verificar(valor: string) {
-        setVerificando(true);
-        setErro('');
-        try {
-            const resultado = await confirmarCodigo(valor);
-            if (resultado.ok) {
-                // E-mail confirmado: vai para a Home e apaga o histórico
-                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
-                return;
-            }
-
-            setCodigo('');
-            if (resultado.motivo === 'incorreto') {
-                setErro(`Código incorreto. Você tem mais ${resultado.restantes} tentativa(s).`);
-            } else if (resultado.motivo === 'expirado') {
-                setErro('Este código expirou. Toque em "Reenviar código".');
-            } else {
-                setErro('Muitas tentativas ou código inválido. Peça um código novo.');
-                setSegundosReenvio(0);
-            }
-        } catch (e) {
-            console.error('Erro ao verificar código:', e);
-            setErro('Não foi possível verificar agora. Tente novamente.');
-        } finally {
-            setVerificando(false);
-        }
-    }
-
-    function aoDigitar(texto: string) {
-        const somenteNumeros = texto.replace(/\D/g, '').slice(0, TAMANHO_CODIGO);
-        setCodigo(somenteNumeros);
-        setErro('');
-        // Verifica sozinho quando completa os 6 dígitos (como apps de banco)
-        if (somenteNumeros.length === TAMANHO_CODIGO) verificar(somenteNumeros);
-    }
-
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <View style={styles.container}>
             <View style={styles.icone}>
                 <Ionicons name="mail-unread-outline" size={36} color={colors.white} />
             </View>
-            <Text style={styles.titulo}>Verifique seu e-mail</Text>
+            <Text style={styles.titulo}>Confirme seu e-mail</Text>
             <Text style={styles.subtitulo}>
-                Enviamos um código de 6 dígitos para{'\n'}
+                Enviamos um link de confirmação para{'\n'}
                 <Text style={styles.email}>{email}</Text>
+                {'\n\n'}Abra o e-mail, toque no link e volte para o app.
             </Text>
 
-            {/* Um TextInput invisível recebe a digitação; as caixas só mostram os números */}
-            <TouchableOpacity
-                activeOpacity={1}
-                style={styles.caixas}
-                onPress={() => inputRef.current?.focus()}
-            >
-                {Array.from({ length: TAMANHO_CODIGO }).map((_, i) => {
-                    const ativa = i === codigo.length && !verificando;
-                    return (
-                        <View
-                            key={i}
-                            style={[
-                                styles.caixa,
-                                ativa && styles.caixaAtiva,
-                                erro ? styles.caixaErro : null,
-                            ]}
-                        >
-                            <Text style={styles.digito}>{codigo[i] ?? ''}</Text>
-                        </View>
-                    );
-                })}
-            </TouchableOpacity>
-            <TextInput
-                ref={inputRef}
-                value={codigo}
-                onChangeText={aoDigitar}
-                keyboardType="number-pad"
-                textContentType="oneTimeCode"
-                autoComplete="one-time-code"
-                maxLength={TAMANHO_CODIGO}
-                autoFocus
-                editable={!verificando}
-                style={styles.inputOculto}
+            <BotaoPrimario
+                titulo="Já confirmei"
+                onPress={() => conferir(true)}
+                carregando={conferindo}
+                style={styles.botao}
             />
 
-            {verificando ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.md }} /> : null}
-            {erro ? <Text style={styles.erro}>{erro}</Text> : null}
+            {aviso ? <Text style={styles.aviso}>{aviso}</Text> : null}
 
             <Text style={styles.dica}>Não chegou? Confira a caixa de spam.</Text>
 
@@ -161,23 +97,19 @@ export default function VerificarEmailScreen({ navigation }: any) {
                 {enviando ? (
                     <ActivityIndicator color={colors.primary} />
                 ) : (
-                    <Text
-                        style={[
-                            styles.textoReenviar,
-                            segundosReenvio > 0 && { color: colors.placeholder },
-                        ]}
-                    >
-                        {segundosReenvio > 0
-                            ? `Reenviar código em ${segundosReenvio}s`
-                            : 'Reenviar código'}
+                    <Text style={[styles.textoReenviar, segundosReenvio > 0 && { color: colors.placeholder }]}>
+                        {segundosReenvio > 0 ? `Reenviar e-mail em ${segundosReenvio}s` : 'Reenviar e-mail'}
                     </Text>
                 )}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => confirmarSaida(navigation, 'Usar outra conta', 'Deseja sair e entrar com outro e-mail?')} style={{ marginTop: spacing.lg }}>
+            <TouchableOpacity
+                onPress={() => confirmarSaida(navigation, 'Usar outra conta', 'Deseja sair e entrar com outro e-mail?')}
+                style={{ marginTop: spacing.lg }}
+            >
                 <Text style={styles.textoTrocar}>Usar outro e-mail</Text>
             </TouchableOpacity>
-        </KeyboardAvoidingView>
+        </View>
     );
 }
 
@@ -201,22 +133,8 @@ const styles = StyleSheet.create({
     titulo: { ...typography.title, marginBottom: spacing.sm },
     subtitulo: { ...typography.subtitle, textAlign: 'center', lineHeight: 22 },
     email: { fontWeight: '700', color: colors.textPrimary },
-    caixas: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
-    caixa: {
-        width: 46,
-        height: 56,
-        borderRadius: radius.md,
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        backgroundColor: colors.surface,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    caixaAtiva: { borderColor: colors.primary, borderWidth: 2 },
-    caixaErro: { borderColor: colors.error },
-    digito: { fontSize: 24, fontWeight: '700', color: colors.textPrimary },
-    inputOculto: { position: 'absolute', opacity: 0, width: 1, height: 1 },
-    erro: { ...typography.errorText, fontSize: 14, marginTop: spacing.md, textAlign: 'center' },
+    botao: { alignSelf: 'stretch', marginTop: spacing.xl },
+    aviso: { ...typography.helper, fontSize: 14, marginTop: spacing.md, textAlign: 'center' },
     dica: { ...typography.helper, marginTop: spacing.lg },
     botaoReenviar: { marginTop: spacing.sm, padding: spacing.sm, minHeight: 40, justifyContent: 'center' },
     textoReenviar: { color: colors.primary, fontWeight: '700', fontSize: 15 },

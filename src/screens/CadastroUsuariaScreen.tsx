@@ -4,6 +4,7 @@ import { Text, TouchableOpacity, Alert } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../services/firebaseConfig';
+import { enviarLinkVerificacao } from '../services/verificarEmailService';
 import TelaFormulario from '../components/TelaFormulario';
 import Campo from '../components/Campo';
 import BotaoPrimario from '../components/BotaoPrimario';
@@ -73,15 +74,16 @@ export default function CadastroUsuariaScreen({ navigation }: any) {
             // 'permission-denied' tem mensagem própria em mensagemErroAuth.
             await setDoc(doc(db, 'usuarias', credencial.user.uid), {
                 nome: nome.trim(),
-                email: email.trim(),
+                email: credencial.user.email, // igual ao do login (o Firebase guarda em minúsculas)
                 telefone: telefoneParaSalvar(telefone),
                 bairro,
-                emailVerificado: false, // vira true na tela do código
                 createdAt: serverTimestamp(),
             });
 
-            // A conta criada já fica logada: segue para a tela do código
-            Alert.alert('Cadastro realizado', 'Enviamos um código de 6 dígitos para o seu e-mail.');
+            // A conta criada já fica logada: envia o link e segue para a tela de confirmação.
+            // Se o envio falhar, a tela tem o botão "Reenviar e-mail".
+            await enviarLinkVerificacao().catch((e) => console.error('Erro ao enviar link:', e));
+            Alert.alert('Cadastro realizado', 'Enviamos um link de confirmação para o seu e-mail.');
             navigation.reset({ index: 0, routes: [{ name: 'VerificarEmail' }] });
         } catch (error: any) {
             console.error('Erro ao cadastrar usuária:', error);

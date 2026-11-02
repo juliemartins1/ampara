@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from './firebaseConfig';
 import { CHAVE_ULTIMA_LOCALIZACAO } from './alertaService';
 import { CHAVE_CACHE_CONTATOS } from './contatosService';
-import { CHAVE_EMAIL_VERIFICADO, emailFoiVerificado } from './verificarEmailService';
+import { emailFoiVerificado } from './verificarEmailService';
 
 export interface DadosUsuaria {
     nome: string;
@@ -73,11 +73,7 @@ export function enviarEmailRedefinicaoSenha(email: string) {
 
 /** Apaga dados locais sensíveis ao sair (outra pessoa pode usar o celular). */
 async function limparDadosLocais() {
-    await AsyncStorage.multiRemove([
-        CHAVE_CACHE_CONTATOS,
-        CHAVE_ULTIMA_LOCALIZACAO,
-        CHAVE_EMAIL_VERIFICADO,
-    ]).catch(() => { });
+    await AsyncStorage.multiRemove([CHAVE_CACHE_CONTATOS, CHAVE_ULTIMA_LOCALIZACAO]).catch(() => { });
 }
 
 export async function sairDaConta() {
@@ -105,7 +101,6 @@ export async function excluirConta(senha: string) {
         collection(db, 'usuarias', user.uid, 'contatosConfianca')
     );
     await Promise.all(contatos.docs.map((d) => deleteDoc(d.ref)));
-    await deleteDoc(doc(db, 'verificacoesEmail', user.uid));
     await deleteDoc(doc(db, 'usuarias', user.uid));
 
     await limparDadosLocais();

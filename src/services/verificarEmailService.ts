@@ -1,120 +1,39 @@
 // src/services/verificarEmailService.ts
-// Verificação de e-mail por CÓDIGO de 6 dígitos.
-// 1. Gera um código aleatório e salva no Firestore só o HASH dele (SHA-256),
-//    com validade de 10 min e limite de tentativas.
-// 2. Envia o código por e-mail usando o EmailJS.
-// 3. Compara o hash do código digitado com o salvo. Se bater,
-//    marca usuarias/{uid}.emailVerificado = true.
-import * as Crypto from 'expo-crypto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { send } from '@emailjs/react-native';
-import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from './firebaseConfig';
-import {
-    EMAILJS_PUBLIC_KEY,
-    EMAILJS_SERVICE_ID,
-    EMAILJS_TEMPLATE_ID,
-} from '../config/emailjs';
+// Verificação de e-mail pelo próprio Firebase Authentication (gratuito):
+// 1. O Firebase envia um e-mail com um link.
+// 2. Ao tocar no link, o SERVIDOR do Google marca a conta como verificada.
+// 3. A marcação vai dentro do token de login (email_verified), que ninguém
+//    consegue falsificar, e as regras do Firestore conferem esse valor.
+import { reload, sendEmailVerification } from 'firebase/auth';
+import { auth } from './firebaseConfig';
 
-const VALIDADE_MS = 10 * 60 * 1000; // 10 minutos
-const MAX_TENTATIVAS = 5;
 export const ESPERA_REENVIO_S = 60;
 
-export type ResultadoConfirmacao =
-    | { ok: true }
-    | { ok: false; motivo: 'incorreto'; restantes: number }
-    | { ok: false; motivo: 'expirado' | 'bloqueado' | 'inexistente' };
-
-function uidAtual(): string {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Usuária não autenticada.');
-    return uid;
-}
-
-function refVerificacao() {
-    return doc(db, 'verificacoesEmail', uidAtual());
-}
-
-// Cópia local de "e-mail verificado" (guarda o uid). Sem internet o Firestore não
-// responde, e a usuária já verificada não pode ficar presa na tela do código (sem o SOS).
-export const CHAVE_EMAIL_VERIFICADO = '@ampara_email_verificado';
-
-/** A usuária logada já confirmou o e-mail? Usado no login e ao abrir o app. */
-export async function emailFoiVerificado(): Promise<boolean> {
-    const uid = uidAtual();
-    try {
-        const snap = await getDoc(doc(db, 'usuarias', uid));
-        const verificado = snap.data()?.emailVerificado === true;
-        if (verificado) AsyncStorage.setItem(CHAVE_EMAIL_VERIFICADO, uid).catch(() => { });
-        return verificado;
-    } catch {
-        return (await AsyncStorage.getItem(CHAVE_EMAIL_VERIFICADO).catch(() => null)) === uid;
-    }
-}
-
-/** Código de 6 dígitos com gerador criptográfico (não usa Math.random). */
-function gerarCodigo(): string {
-    const bytes = Crypto.getRandomBytes(4);
-    const numero = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
-    return String(numero % 1_000_000).padStart(6, '0');
-}
-
-/** Hash com o uid junto ("sal"), para o mesmo código não gerar o mesmo hash. */
-function hashCodigo(codigo: string): Promise<string> {
-    return Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        `${uidAtual()}:${codigo}`
-    );
-}
-
-/** Existe um código ainda válido? (evita reenviar toda vez que abre a tela) */
-export async function existeCodigoValido(): Promise<boolean> {
-    const snap = await getDoc(refVerificacao());
-    return snap.exists() && Date.now() < snap.data().expiraEm;
-}
-
-/** Gera um código novo, salva o hash e envia por e-mail. */
-export async function enviarCodigo(): Promise<void> {
+function usuariaAtual() {
     const user = auth.currentUser;
-    if (!user?.email) throw new Error('Usuária não autenticada.');
-
-    const codigo = gerarCodigo();
-    await setDoc(refVerificacao(), {
-        codigoHash: await hashCodigo(codigo),
-        expiraEm: Date.now() + VALIDADE_MS,
-        tentativas: 0,
-    });
-
-    // {{email}}, {{codigo}} e {{validade}} precisam existir no template do EmailJS
-    await send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_ID,
-        { email: user.email, codigo, validade: '10 minutos' },
-        { publicKey: EMAILJS_PUBLIC_KEY }
-    );
+    if (!user) throw new Error('Usuária não autenticada.');
+    return user;
 }
 
-/** Confere o código digitado. */
-export async function confirmarCodigo(codigoDigitado: string): Promise<ResultadoConfirmacao> {
-    const ref = refVerificacao();
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return { ok: false, motivo: 'inexistente' };
+/** Envia (ou reenvia) o e-mail com o link de confirmação, em português. */
+export function enviarLinkVerificacao() {
+    auth.languageCode = 'pt-BR';
+    return sendEmailVerification(usuariaAtual());
+}
 
-    const { codigoHash, expiraEm, tentativas } = snap.data();
-    if (Date.now() > expiraEm) return { ok: false, motivo: 'expirado' };
-    if (tentativas >= MAX_TENTATIVAS) return { ok: false, motivo: 'bloqueado' };
-
-    if ((await hashCodigo(codigoDigitado)) !== codigoHash) {
-        await updateDoc(ref, { tentativas: tentativas + 1 });
-        const restantes = MAX_TENTATIVAS - tentativas - 1;
-        return restantes > 0
-            ? { ok: false, motivo: 'incorreto', restantes }
-            : { ok: false, motivo: 'bloqueado' };
+/**
+ * A usuária logada já tocou no link? Usado ao abrir o app, no login e na tela
+ * de verificação. Sem internet, vale o último valor que o Firebase guardou
+ * no celular (assim quem já é verificada não fica presa nem sem o SOS).
+ */
+export async function emailFoiVerificado(): Promise<boolean> {
+    const user = usuariaAtual();
+    try {
+        await reload(user);
+        // Renova o token para as regras do Firestore já enxergarem a verificação
+        if (user.emailVerified) await user.getIdToken(true);
+    } catch {
+        // sem internet: segue com o valor guardado
     }
-
-    // Deu certo: marca como verificada e apaga o código usado
-    await setDoc(doc(db, 'usuarias', uidAtual()), { emailVerificado: true }, { merge: true });
-    await AsyncStorage.setItem(CHAVE_EMAIL_VERIFICADO, uidAtual()).catch(() => { });
-    await deleteDoc(ref);
-    return { ok: true };
+    return user.emailVerified;
 }
