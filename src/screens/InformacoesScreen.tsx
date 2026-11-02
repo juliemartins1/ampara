@@ -166,14 +166,6 @@ export default function InformacoesScreen({ navigation }: any) {
                     ))}
                 </ScrollView>
             )}
-
-            <TouchableOpacity
-                style={styles.botaoContinuar}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('MapaServicos')}
-            >
-                <Text style={styles.botaoContinuarTexto}>Ver serviços de apoio no mapa →</Text>
-            </TouchableOpacity>
         </ScrollView>
     );
 }
@@ -185,7 +177,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 24,
-        paddingBottom: 40,
+        paddingBottom: 88, // espaço para o botão de saída rápida
     },
     titulo: {
         ...typography.title,
@@ -271,17 +263,5 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
         color: colors.primary,
-    },
-    botaoContinuar: {
-        backgroundColor: colors.primary,
-        borderRadius: radius.md,
-        paddingVertical: spacing.md,
-        alignItems: 'center',
-        marginTop: spacing.md,
-    },
-    botaoContinuarTexto: {
-        color: '#FFFFFF',
-        fontSize: 15,
-        fontWeight: '700',
     },
 });
