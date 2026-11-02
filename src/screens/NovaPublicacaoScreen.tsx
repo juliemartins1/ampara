@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { colors, spacing, radius, typography } from '../theme/colors';
 import { auth, db } from '../services/firebaseConfig';
 import Chips from '../components/Chips';
@@ -40,14 +40,20 @@ export default function NovaPublicacaoScreen() {
 
         setEnviando(true);
         try {
-            await addDoc(collection(db, 'publicacoes'), {
+            // A publicação não guarda quem escreveu. A autoria fica em
+            // publicacoes/{id}/privado/autoria, que só as moderadoras leem.
+            // As duas gravações vão juntas: ou ambas acontecem, ou nenhuma.
+            const ref = doc(collection(db, 'publicacoes'));
+            const batch = writeBatch(db);
+            batch.set(ref, {
                 texto: conteudo,
                 categoria,
                 status: 'pendente',
-                autoraUid: usuaria.uid,
                 criadaEm: serverTimestamp(),
                 denuncias: 0,
             });
+            batch.set(doc(db, 'publicacoes', ref.id, 'privado', 'autoria'), { uid: usuaria.uid });
+            await batch.commit();
             Alert.alert('Publicação enviada', 'Ela será revisada antes de aparecer no mural.');
             navigation.goBack();
         } catch (erro) {

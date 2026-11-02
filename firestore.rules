@@ -44,10 +44,11 @@ service cloud.firestore {
     }
 
     match /publicacoes/{publicacaoId} {
-      // Só conta verificada publica (antes a verificação só valia dentro do app)
+      // Só conta verificada publica. A publicação NÃO guarda quem escreveu:
+      // a autoria é gravada junto (mesmo batch) em privado/autoria.
       allow create: if verificada()
-        && request.resource.data.keys().hasOnly(['texto', 'categoria', 'status', 'autoraUid', 'criadaEm', 'denuncias'])
-        && request.resource.data.autoraUid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['texto', 'categoria', 'status', 'criadaEm', 'denuncias'])
+        && existsAfter(/databases/$(database)/documents/publicacoes/$(publicacaoId)/privado/autoria)
         && request.resource.data.status == 'pendente'
         && request.resource.data.texto is string
         && request.resource.data.texto.size() > 0
@@ -58,7 +59,6 @@ service cloud.firestore {
 
       allow read: if request.auth != null && (
         resource.data.status == 'aprovada'
-        || resource.data.autoraUid == request.auth.uid
         || ehModeradora()
       );
 
@@ -78,6 +78,18 @@ service cloud.firestore {
           && existsAfter(/databases/$(database)/documents/publicacoes/$(publicacaoId)/denuncias/$(request.auth.uid)));
 
       allow delete: if ehModeradora();
+
+      // Autoria da publicação: só a moderação lê. Criada uma única vez, junto
+      // com a publicação nova (ela ainda não existia antes desta operação).
+      match /privado/autoria {
+        allow create: if verificada()
+          && request.resource.data.keys().hasOnly(['uid'])
+          && request.resource.data.uid == request.auth.uid
+          && !exists(/databases/$(database)/documents/publicacoes/$(publicacaoId))
+          && getAfter(/databases/$(database)/documents/publicacoes/$(publicacaoId)).data.status == 'pendente';
+        allow read, delete: if ehModeradora();
+        allow update: if false;
+      }
 
       // Uma denúncia por usuária: o ID do documento é o UID dela
       match /denuncias/{uid} {
