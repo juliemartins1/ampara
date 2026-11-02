@@ -4,6 +4,7 @@ import {
     EmailAuthProvider,
     deleteUser,
     reauthenticateWithCredential,
+    sendPasswordResetEmail,
     signOut,
     updatePassword,
 } from 'firebase/auth';
@@ -63,6 +64,11 @@ export function atualizarUsuaria(dados: DadosEditaveis) {
 export async function rotaDaSessao(): Promise<'Login' | 'VerificarEmail' | 'Home'> {
     if (!auth.currentUser) return 'Login';
     return (await emailFoiVerificado().catch(() => false)) ? 'Home' : 'VerificarEmail';
+}
+
+/** Envia o e-mail padrão do Firebase para a usuária criar uma nova senha. */
+export function enviarEmailRedefinicaoSenha(email: string) {
+    return sendPasswordResetEmail(auth, email.trim());
 }
 
 /** Apaga dados locais sensíveis ao sair (outra pessoa pode usar o celular). */

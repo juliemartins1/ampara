@@ -1269,7 +1269,7 @@ const styles = StyleSheet.create({
 
         right: 16,
 
-        bottom: 24,
+        bottom: 80, // acima do botão de saída rápida
 
         backgroundColor:
             colors.surface,

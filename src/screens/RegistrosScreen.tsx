@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import BotaoPrimario from '../components/BotaoPrimario';
 import {
     listarRegistros,
@@ -31,6 +31,9 @@ export default function RegistrosScreen({ navigation, route }: any) {
     const [registros, setRegistros] = useState<string[]>([]);
     const [aberto, setAberto] = useState<Aberto>(null);
     const player = useAudioPlayer(null);
+    const status = useAudioPlayerStatus(player);
+    const [audioAtual, setAudioAtual] = useState<string | null>(null);
+    const tocando = (uri: string) => audioAtual === uri && status.playing;
 
     // Recarrega ao voltar da tela de relato
     useFocusEffect(
@@ -43,7 +46,14 @@ export default function RegistrosScreen({ navigation, route }: any) {
     async function abrir(uri: string) {
         const tipo = tipoDoRegistro(uri);
         if (tipo === 'audio') {
-            player.replace({ uri });
+            // Tocar no mesmo áudio pausa; tocar de novo continua (ou recomeça, se tinha acabado)
+            if (tocando(uri)) return player.pause();
+            if (audioAtual !== uri) {
+                player.replace({ uri });
+                setAudioAtual(uri);
+            } else if (status.currentTime >= status.duration) {
+                await player.seekTo(0);
+            }
             player.play();
         } else if (tipo === 'foto') {
             setAberto({ foto: uri });
@@ -119,7 +129,11 @@ export default function RegistrosScreen({ navigation, route }: any) {
                                 {descreverRegistro(item)}
                             </Text>
                             <TouchableOpacity onPress={() => abrir(item)} accessibilityLabel="Abrir">
-                                <Ionicons name={ICONES_ABRIR[tipo]} size={22} color={colors.primaryDark} />
+                                <Ionicons
+                                    name={tocando(item) ? 'pause' : ICONES_ABRIR[tipo]}
+                                    size={22}
+                                    color={colors.primaryDark}
+                                />
                             </TouchableOpacity>
                             <TouchableOpacity onPress={() => enviar(item)} accessibilityLabel="Enviar">
                                 <Ionicons name="share-social" size={22} color={colors.primaryDark} />

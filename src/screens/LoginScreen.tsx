@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Text, TouchableOpacity, Alert } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebaseConfig';
-import { rotaDaSessao } from '../services/usuariaService';
+import { enviarEmailRedefinicaoSenha, rotaDaSessao } from '../services/usuariaService';
 import TelaFormulario from '../components/TelaFormulario';
 import Campo from '../components/Campo';
 import BotaoPrimario from '../components/BotaoPrimario';
@@ -48,6 +48,21 @@ export default function LoginScreen({ navigation }: any) {
         }
     }
 
+    // Usa o e-mail já digitado no campo
+    async function esqueciSenha() {
+        const erroEmail = validarEmail(email);
+        if (erroEmail) {
+            setErrors({ email: 'Digite seu e-mail acima para receber o link.' });
+            return;
+        }
+        try {
+            await enviarEmailRedefinicaoSenha(email);
+            Alert.alert('Verifique seu e-mail', 'Se houver uma conta com este e-mail, enviamos um link para criar uma nova senha. Confira também o spam.');
+        } catch (error: any) {
+            Alert.alert('Erro', mensagemErroAuth(error?.code, 'login'));
+        }
+    }
+
     return (
         <TelaFormulario
             icone="A"
@@ -75,6 +90,10 @@ export default function LoginScreen({ navigation }: any) {
             />
 
             <BotaoPrimario titulo="Entrar" onPress={handleEntrar} carregando={loading} />
+
+            <TouchableOpacity style={formStyles.linkBotao} onPress={esqueciSenha}>
+                <Text style={formStyles.linkTexto}>Esqueci minha senha</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
                 style={formStyles.linkBotao}

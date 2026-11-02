@@ -128,7 +128,7 @@ export default function RelatoScreen({ navigation }: any) {
             Alert.alert('Relato salvo', 'O PDF está em Meus registros.', [
                 { text: 'OK', onPress: () => navigation.goBack() },
                 // Volta para Meus registros já abrindo o relato
-                { text: 'Abrir', onPress: () => navigation.navigate('Registros', { abrir: pdf }) },
+                { text: 'Abrir', onPress: () => navigation.popTo('Registros', { abrir: pdf }) },
                 { text: 'Enviar agora', onPress: () => enviar(pdf) },
             ]);
         } catch (erro) {
