@@ -18,9 +18,11 @@ import {
     updateDoc,
 } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { auth, db } from './firebaseConfig';
 import { CHAVE_ULTIMA_LOCALIZACAO } from './alertaService';
 import { CHAVE_CACHE_CONTATOS } from './contatosService';
+import { pastaDaUsuaria } from './registrosService';
 import { emailFoiVerificado } from './verificarEmailService';
 
 export interface DadosUsuaria {
@@ -104,6 +106,8 @@ export async function excluirConta(senha: string) {
     await deleteDoc(doc(db, 'usuarias', user.uid));
 
     await limparDadosLocais();
+    // Áudios, fotos e relatos desta conta: sem a conta, ninguém mais conseguiria abri-los
+    await FileSystem.deleteAsync(pastaDaUsuaria(user.uid), { idempotent: true }).catch(() => { });
     await deleteUser(user); // por último: sem login, o Firestore não deixaria apagar
 }
 

@@ -20,7 +20,7 @@ export default function ExcluirContaScreen({ navigation }: any) {
         }
         Alert.alert(
             'Excluir conta definitivamente?',
-            'Seus dados e contatos de confiança serão apagados. Essa ação não pode ser desfeita.',
+            'Seus dados, contatos de confiança e registros (áudios, fotos e relatos) serão apagados. Essa ação não pode ser desfeita.',
             [
                 { text: 'Cancelar', style: 'cancel' },
                 { text: 'Excluir', style: 'destructive', onPress: executar },
@@ -46,8 +46,8 @@ export default function ExcluirContaScreen({ navigation }: any) {
             <View style={styles.aviso}>
                 <Ionicons name="warning-outline" size={28} color={colors.error} />
                 <Text style={styles.avisoTexto}>
-                    Ao excluir sua conta, apagaremos seu cadastro e todos os seus contatos de
-                    confiança. Essa ação é permanente.
+                    Ao excluir sua conta, apagaremos seu cadastro, seus contatos de confiança e os
+                    áudios, fotos e relatos guardados neste celular. Essa ação é permanente.
                 </Text>
             </View>
 

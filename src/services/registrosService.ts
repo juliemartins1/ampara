@@ -3,10 +3,19 @@
 // Essa pasta não aparece na galeria nem no gerenciador de arquivos:
 // só o Ampara consegue abrir. Nada disso vai para o Firebase.
 import * as FileSystem from 'expo-file-system/legacy';
+import { auth } from './firebaseConfig';
 
 export type TipoRegistro = 'audio' | 'foto' | 'relato';
 
-const PASTA = `${FileSystem.documentDirectory}registros/`;
+// Cada conta tem a sua pasta: usuarias/{uid}/registros e usuarias/{uid}/visualizacao.
+// Antes era uma pasta só, e quem entrava com outra conta no mesmo celular
+// via os áudios, fotos e relatos da outra pessoa.
+export function pastaDaUsuaria(uid = auth.currentUser?.uid) {
+    if (!uid) throw new Error('Usuária não autenticada.');
+    return `${FileSystem.documentDirectory}usuarias/${uid}/`;
+}
+const pastaRegistros = () => `${pastaDaUsuaria()}registros/`;
+const pastaVisualizacao = () => `${pastaDaUsuaria()}visualizacao/`;
 
 const ROTULOS: Record<TipoRegistro, string> = {
     audio: 'Áudio',
@@ -19,12 +28,13 @@ const nomeDoArquivo = (uri: string) => uri.split('/').pop() ?? '';
 
 // Endereço novo na pasta interna. Nome: tipo_AAAA-MM-DD_HH-MM-SS.ext
 async function novoEndereco(tipo: TipoRegistro, extensao: string) {
-    await FileSystem.makeDirectoryAsync(PASTA, { intermediates: true });
+    const pasta = pastaRegistros();
+    await FileSystem.makeDirectoryAsync(pasta, { intermediates: true });
     const d = new Date();
     const carimbo =
         `${d.getFullYear()}-${doisDigitos(d.getMonth() + 1)}-${doisDigitos(d.getDate())}_` +
         `${doisDigitos(d.getHours())}-${doisDigitos(d.getMinutes())}-${doisDigitos(d.getSeconds())}`;
-    return `${PASTA}${tipo}_${carimbo}.${extensao}`;
+    return `${pasta}${tipo}_${carimbo}.${extensao}`;
 }
 
 // Move um arquivo temporário (foto ou áudio) para a pasta interna
@@ -43,10 +53,11 @@ export async function guardarRegistroBase64(base64: string, tipo: TipoRegistro, 
 
 // Endereços dos arquivos, mais recentes primeiro
 export async function listarRegistros(): Promise<string[]> {
-    const { exists } = await FileSystem.getInfoAsync(PASTA);
+    const pasta = pastaRegistros();
+    const { exists } = await FileSystem.getInfoAsync(pasta);
     if (!exists) return [];
-    const nomes = await FileSystem.readDirectoryAsync(PASTA);
-    return nomes.sort().reverse().map((nome) => PASTA + nome);
+    const nomes = await FileSystem.readDirectoryAsync(pasta);
+    return nomes.sort().reverse().map((nome) => pasta + nome);
 }
 
 export function tipoDoRegistro(uri: string): TipoRegistro {
@@ -68,11 +79,10 @@ export function lerEmBase64(uri: string) {
 // Cópia em HTML de cada relato, para ler dentro do app (numa WebView).
 // O Android não mostra PDF dentro de apps, e a pré-visualização de impressão
 // travava em "Preparando visualização". Fica numa pasta à parte, fora da lista.
-const PASTA_VISUALIZACAO = `${FileSystem.documentDirectory}visualizacao/`;
-const visualizacaoDe = (pdf: string) => `${PASTA_VISUALIZACAO}${nomeDoArquivo(pdf)}.html`;
+const visualizacaoDe = (pdf: string) => `${pastaVisualizacao()}${nomeDoArquivo(pdf)}.html`;
 
 export async function guardarVisualizacao(pdf: string, html: string) {
-    await FileSystem.makeDirectoryAsync(PASTA_VISUALIZACAO, { intermediates: true });
+    await FileSystem.makeDirectoryAsync(pastaVisualizacao(), { intermediates: true });
     await FileSystem.writeAsStringAsync(visualizacaoDe(pdf), html);
 }
 
