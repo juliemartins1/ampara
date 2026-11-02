@@ -104,10 +104,18 @@ export default function RegistrosScreen({ navigation, route }: any) {
                 ListHeaderComponent={
                     <>
                         <BotaoPrimario titulo="Escrever relato" onPress={() => navigation.navigate('Relato')} />
-                        <Text style={[typography.helper, styles.aviso]}>
-                            Estes arquivos ficam só dentro do Ampara. Ao enviar, escolha direto quem pode ajudar
-                            (contato de confiança, delegacia ou advogada) para não deixar cópia no celular.
-                        </Text>
+                        <View style={styles.aviso}>
+                            <Ionicons name="shield-checkmark-outline" size={20} color={colors.primaryDark} />
+                            <Text style={styles.avisoTexto}>
+                                Estes arquivos ficam só dentro do Ampara e não aparecem na galeria.{'\n'}
+                                Ao enviar, escolha direto quem pode ajudar (contato de confiança, delegacia ou
+                                advogada).{'\n'}
+                                <Text style={styles.avisoDestaque}>
+                                    Depois de enviar, apague a conversa ou o arquivo no app usado (WhatsApp,
+                                    Telegram, e-mail): eles podem guardar uma cópia que aparece na galeria.
+                                </Text>
+                            </Text>
+                        </View>
                     </>
                 }
                 ListEmptyComponent={
@@ -171,7 +179,16 @@ export default function RegistrosScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     lista: { padding: spacing.lg, paddingBottom: 88 },
-    aviso: { marginVertical: spacing.md },
+    aviso: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        backgroundColor: colors.primarySoft,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        marginVertical: spacing.md,
+    },
+    avisoTexto: { ...typography.helper, flex: 1, fontSize: 13, lineHeight: 19, color: colors.primaryDark },
+    avisoDestaque: { fontWeight: '700' },
     vazio: { ...typography.subtitle, textAlign: 'center', marginTop: spacing.xl },
     item: {
         flexDirection: 'row',
