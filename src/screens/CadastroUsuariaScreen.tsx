@@ -69,28 +69,18 @@ export default function CadastroUsuariaScreen({ navigation }: any) {
         try {
             const credencial = await createUserWithEmailAndPassword(auth, email.trim(), senha);
 
-            try {
-                await setDoc(doc(db, 'usuarias', credencial.user.uid), {
-                    nome: nome.trim(),
-                    email: email.trim(),
-                    telefone: telefoneParaSalvar(telefone),
-                    bairro,
-                    emailVerificado: false, // vira true na tela do código
-                    createdAt: serverTimestamp(),
-                });
-            } catch (firestoreError) {
-                // A conta JÁ FOI criada no Firebase Auth neste ponto, mesmo
-                // que salvar os dados no Firestore tenha falhado (ex: regras
-                // de segurança bloqueando a escrita). Registrar isso é
-                // importante para não confundir com "cadastro não existe".
-                console.error(
-                    'Conta criada no Auth, mas falhou ao salvar no Firestore:',
-                    firestoreError
-                );
-                throw firestoreError;
-            }
+            // Se esta gravação falhar, a conta JÁ existe no Auth: o erro
+            // 'permission-denied' tem mensagem própria em mensagemErroAuth.
+            await setDoc(doc(db, 'usuarias', credencial.user.uid), {
+                nome: nome.trim(),
+                email: email.trim(),
+                telefone: telefoneParaSalvar(telefone),
+                bairro,
+                emailVerificado: false, // vira true na tela do código
+                createdAt: serverTimestamp(),
+            });
 
-            // A conta criada já fica logada: o App.tsx mostra a tela do código sozinho.
+            // A conta criada já fica logada: segue para a tela do código
             Alert.alert('Cadastro realizado', 'Enviamos um código de 6 dígitos para o seu e-mail.');
             navigation.reset({ index: 0, routes: [{ name: 'VerificarEmail' }] });
         } catch (error: any) {

@@ -1,14 +1,15 @@
 // src/screens/HomeScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography } from '../theme/colors';
 import { Contato, LIMITE_CONTATOS, ouvirContatos } from '../services/contatosService';
-import { ouvirUsuaria, sairDaConta } from '../services/usuariaService';
+import { ouvirUsuaria } from '../services/usuariaService';
 import { aquecerLocalizacao } from '../services/alertaService';
 import { pedirPermissoesGravacao } from '../hooks/useGravacaoSOS';
 import { abrirLink } from '../utils/abrirLink';
+import { confirmarSaida } from '../utils/confirmarSaida';
 import BotaoSOS from '../components/BotaoSOS';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
@@ -95,25 +96,6 @@ export default function HomeScreen({ navigation }: any) {
         })().catch(() => { });
     }, []);
 
-    function handleSair() {
-        Alert.alert('Sair da conta', 'Tem certeza que deseja sair?', [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-                text: 'Sair',
-                style: 'destructive',
-                onPress: async () => {
-                    try {
-                        await sairDaConta(); // também apaga o cache dos contatos
-                        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-                    } catch (error) {
-                        console.error('Erro ao sair:', error);
-                        Alert.alert('Erro', 'Não foi possível sair da conta. Tente novamente.');
-                    }
-                },
-            },
-        ]);
-    }
-
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <ScrollView
@@ -132,7 +114,7 @@ export default function HomeScreen({ navigation }: any) {
                             <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
                         </TouchableOpacity>
                         <TouchableOpacity
-                            onPress={handleSair}
+                            onPress={() => confirmarSaida(navigation)}
                             style={styles.iconeHeader}
                             hitSlop={HIT_SLOP}
                             accessibilityLabel="Sair"
@@ -245,7 +227,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 20,
-        paddingBottom: 40,
+        paddingBottom: 88, // espaço para o botão de saída rápida
     },
     headerBar: {
         flexDirection: 'row',

@@ -9,10 +9,13 @@ import {
     StyleSheet,
     KeyboardAvoidingView,
     Platform,
+    Alert,
+    BackHandler,
 } from 'react-native';
-import { auth } from '../services/firebaseConfig';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { rotaDaSessao } from '../services/usuariaService';
 import { spacing, radius } from '../theme/colors';
 
 type Nota = {
@@ -31,22 +34,29 @@ export default function BlocoDeNotasScreen() {
     const [notaSelecionada, setNotaSelecionada] = useState<Nota | null>(null);
 
     useEffect(() => {
-        carregarNotas();
+        AsyncStorage.getItem(NOTAS_STORAGE_KEY)
+            .then((salvo) => setNotas(salvo ? JSON.parse(salvo) : []))
+            .catch(() => setNotas([]));
     }, []);
 
-    const carregarNotas = async () => {
-        const salvo = await AsyncStorage.getItem(NOTAS_STORAGE_KEY);
-        setNotas(salvo ? JSON.parse(salvo) : []);
-    };
+    // Com uma nota aberta, o "voltar" do Android fecha a nota (e não o app)
+    useEffect(() => {
+        if (!notaSelecionada) return;
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+            setNotaSelecionada(null);
+            return true;
+        });
+        return () => sub.remove();
+    }, [notaSelecionada]);
 
     const salvarNotas = async (novaLista: Nota[]) => {
         setNotas(novaLista);
         await AsyncStorage.setItem(NOTAS_STORAGE_KEY, JSON.stringify(novaLista));
     };
-    // Gesto secreto: sai do disfarce. Vai para a Home se estiver logada,
-    // ou para o Login se não estiver.
-    const sairDoDisfarce = () => {
-        navigation.replace(auth.currentUser ? 'Home' : 'Login');
+    // Gesto secreto: sai do disfarce para a tela da sessão
+    // (Login, Verificar e-mail ou Home — a mesma regra de quando o app abre)
+    const sairDoDisfarce = async () => {
+        navigation.reset({ index: 0, routes: [{ name: await rotaDaSessao() }] });
     };
 
     const criarNovaNota = () => {
@@ -61,6 +71,11 @@ export default function BlocoDeNotasScreen() {
 
     const salvarNotaAtual = () => {
         if (!notaSelecionada) return;
+        // Nota em branco não vira um cartão vazio na lista
+        if (!notaSelecionada.titulo.trim() && !notaSelecionada.conteudo.trim()) {
+            setNotaSelecionada(null);
+            return;
+        }
         const jaExiste = notas.find((n) => n.id === notaSelecionada.id);
         const novaLista = jaExiste
             ? notas.map((n) => (n.id === notaSelecionada.id ? notaSelecionada : n))
@@ -69,52 +84,62 @@ export default function BlocoDeNotasScreen() {
         setNotaSelecionada(null);
     };
 
-    const apagarNota = (id: string) => {
-        salvarNotas(notas.filter((n) => n.id !== id));
+    // Pede confirmação: antes um toque longo sem querer apagava a nota
+    const apagarNota = (nota: Nota) => {
+        Alert.alert('Apagar nota', `Apagar "${nota.titulo || 'Sem título'}"?`, [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+                text: 'Apagar',
+                style: 'destructive',
+                onPress: () => salvarNotas(notas.filter((n) => n.id !== nota.id)),
+            },
+        ]);
     };
 
     // Tela de edição de uma nota individual
     if (notaSelecionada) {
         return (
-            <KeyboardAvoidingView
-                style={styles.container}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            >
-                <TextInput
-                    style={styles.inputTitulo}
-                    placeholder="Título"
-                    value={notaSelecionada.titulo}
-                    onChangeText={(texto) =>
-                        setNotaSelecionada({ ...notaSelecionada, titulo: texto })
-                    }
-                />
-                <TextInput
-                    style={styles.inputConteudo}
-                    placeholder="Escreva sua nota..."
-                    multiline
-                    value={notaSelecionada.conteudo}
-                    onChangeText={(texto) =>
-                        setNotaSelecionada({ ...notaSelecionada, conteudo: texto })
-                    }
-                />
-                <View style={styles.linhaBotoes}>
-                    <TouchableOpacity
-                        style={styles.botaoCancelar}
-                        onPress={() => setNotaSelecionada(null)}
-                    >
-                        <Text style={styles.botaoCancelarTexto}>Cancelar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.botaoSalvar} onPress={salvarNotaAtual}>
-                        <Text style={styles.botaoSalvarTexto}>Salvar</Text>
-                    </TouchableOpacity>
-                </View>
-            </KeyboardAvoidingView>
+            <SafeAreaView style={styles.container}>
+                <KeyboardAvoidingView
+                    style={styles.flex}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                >
+                    <TextInput
+                        style={styles.inputTitulo}
+                        placeholder="Título"
+                        value={notaSelecionada.titulo}
+                        onChangeText={(texto) =>
+                            setNotaSelecionada({ ...notaSelecionada, titulo: texto })
+                        }
+                    />
+                    <TextInput
+                        style={styles.inputConteudo}
+                        placeholder="Escreva sua nota..."
+                        multiline
+                        value={notaSelecionada.conteudo}
+                        onChangeText={(texto) =>
+                            setNotaSelecionada({ ...notaSelecionada, conteudo: texto })
+                        }
+                    />
+                    <View style={styles.linhaBotoes}>
+                        <TouchableOpacity
+                            style={styles.botaoCancelar}
+                            onPress={() => setNotaSelecionada(null)}
+                        >
+                            <Text style={styles.botaoCancelarTexto}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.botaoSalvar} onPress={salvarNotaAtual}>
+                            <Text style={styles.botaoSalvarTexto}>Salvar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
         );
     }
 
     // Tela de lista de notas
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <TouchableOpacity
                 onLongPress={sairDoDisfarce}
                 delayLongPress={TEMPO_TOQUE_LONGO_MS}
@@ -136,7 +161,7 @@ export default function BlocoDeNotasScreen() {
                         <TouchableOpacity
                             style={styles.notaCard}
                             onPress={() => setNotaSelecionada(item)}
-                            onLongPress={() => apagarNota(item.id)}
+                            onLongPress={() => apagarNota(item)}
                         >
                             <Text style={styles.notaTitulo}>
                                 {item.titulo || 'Sem título'}
@@ -150,7 +175,7 @@ export default function BlocoDeNotasScreen() {
             <TouchableOpacity style={styles.botaoNova} onPress={criarNovaNota}>
                 <Text style={styles.botaoNovaTexto}>+</Text>
             </TouchableOpacity>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -159,8 +184,8 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#FFF9E6',
         padding: spacing.md,
-        paddingTop: 32,
     },
+    flex: { flex: 1 },
     titulo: {
         fontSize: 22,
         fontWeight: '600',

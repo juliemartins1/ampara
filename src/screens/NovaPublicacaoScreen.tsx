@@ -3,9 +3,9 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import { useNavigation } from '@react-navigation/native';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { colors, spacing, radius, typography } from '../theme/colors';
-import { auth, db } from '../services/firebaseConfig'; // ajuste se os nomes exportados forem outros
-
-import { Categoria, CATEGORIAS } from '../types/models';
+import { auth, db } from '../services/firebaseConfig';
+import Chips from '../components/Chips';
+import { Categoria, CATEGORIAS, ROTULOS_CATEGORIA } from '../types/models';
 
 const LIMITE = 1000;
 // Detecta algo parecido com telefone (com ou sem DDD) para proteger a identidade
@@ -64,17 +64,12 @@ export default function NovaPublicacaoScreen() {
                 Sua publicação aparece de forma anônima. Evite nomes, endereços e telefones.
             </Text>
 
-            <View style={styles.categorias}>
-                {CATEGORIAS.map(c => (
-                    <TouchableOpacity
-                        key={c.valor}
-                        style={[styles.chip, categoria === c.valor && styles.chipAtivo]}
-                        onPress={() => setCategoria(c.valor)}
-                    >
-                        <Text style={[styles.textoChip, categoria === c.valor && styles.textoChipAtivo]}>{c.rotulo}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+            <Chips
+                opcoes={CATEGORIAS}
+                selecionados={[categoria]}
+                aoTocar={setCategoria}
+                rotulo={(c) => ROTULOS_CATEGORIA[c]}
+            />
 
             <TextInput
                 style={styles.campo}
@@ -104,17 +99,6 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
         fontSize: 13,
     },
-    categorias: { flexDirection: 'row', gap: spacing.sm, marginBottom: 12 },
-    chip: {
-        borderWidth: 1,
-        borderColor: colors.primary,
-        borderRadius: radius.pill,
-        paddingVertical: 6,
-        paddingHorizontal: 14,
-    },
-    chipAtivo: { backgroundColor: colors.primary },
-    textoChip: { color: colors.primary, fontWeight: '600' },
-    textoChipAtivo: { color: colors.white },
     campo: {
         ...typography.input,
         minHeight: 180,

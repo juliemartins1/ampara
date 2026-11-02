@@ -11,7 +11,7 @@ export const formStyles = StyleSheet.create({
     },
     content: {
         padding: spacing.lg,
-        paddingBottom: spacing.xl,
+        paddingBottom: 88, // espaço para o botão de saída rápida (canto inferior)
     },
     cartao: {
         backgroundColor: colors.surface,

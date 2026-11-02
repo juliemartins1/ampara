@@ -4,7 +4,6 @@ import {
     EmailAuthProvider,
     deleteUser,
     reauthenticateWithCredential,
-    sendPasswordResetEmail,
     signOut,
     updatePassword,
 } from 'firebase/auth';
@@ -17,10 +16,11 @@ import {
     serverTimestamp,
     updateDoc,
 } from 'firebase/firestore';
-import { CHAVE_ULTIMA_LOCALIZACAO } from './alertaService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from './firebaseConfig';
+import { CHAVE_ULTIMA_LOCALIZACAO } from './alertaService';
 import { CHAVE_CACHE_CONTATOS } from './contatosService';
+import { CHAVE_EMAIL_VERIFICADO, emailFoiVerificado } from './verificarEmailService';
 
 export interface DadosUsuaria {
     nome: string;
@@ -56,26 +56,27 @@ export function atualizarUsuaria(dados: DadosEditaveis) {
     });
 }
 
-/** Envia o e-mail padrão do Firebase para a usuária criar uma nova senha. */
-export function enviarEmailRedefinicaoSenha(email: string) {
-    return sendPasswordResetEmail(auth, email);
+/**
+ * Tela certa para a sessão atual. Usada ao abrir o app, no login e ao sair do disfarce:
+ *   sem login -> Login | e-mail não verificado -> VerificarEmail | verificada -> Home
+ */
+export async function rotaDaSessao(): Promise<'Login' | 'VerificarEmail' | 'Home'> {
+    if (!auth.currentUser) return 'Login';
+    return (await emailFoiVerificado().catch(() => false)) ? 'Home' : 'VerificarEmail';
 }
 
-/** Apaga dados locais sensíveis antes de sair (outra pessoa pode usar o celular). */
+/** Apaga dados locais sensíveis ao sair (outra pessoa pode usar o celular). */
 async function limparDadosLocais() {
-    await AsyncStorage.multiRemove([CHAVE_CACHE_CONTATOS, CHAVE_ULTIMA_LOCALIZACAO]).catch(() => { });
+    await AsyncStorage.multiRemove([
+        CHAVE_CACHE_CONTATOS,
+        CHAVE_ULTIMA_LOCALIZACAO,
+        CHAVE_EMAIL_VERIFICADO,
+    ]).catch(() => { });
 }
 
 export async function sairDaConta() {
     await limparDadosLocais();
     await signOut(auth);
-}
-
-// Enquanto a conta é excluída, o documento da usuária some antes do login.
-// O App.tsx consulta isso para não mostrar a tela de verificação nesse meio-tempo.
-let excluindoConta = false;
-export function estaExcluindoConta() {
-    return excluindoConta;
 }
 
 /**
@@ -101,7 +102,7 @@ export async function excluirConta(senha: string) {
     await deleteDoc(doc(db, 'verificacoesEmail', user.uid));
     await deleteDoc(doc(db, 'usuarias', user.uid));
 
-    await AsyncStorage.removeItem(CHAVE_CACHE_CONTATOS).catch(() => { });
+    await limparDadosLocais();
     await deleteUser(user); // por último: sem login, o Firestore não deixaria apagar
 }
 

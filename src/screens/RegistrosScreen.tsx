@@ -11,7 +11,7 @@ import {
     listarRegistros,
     tipoDoRegistro,
     descreverRegistro,
-    compartilharRegistro,
+    compartilharRegistros,
     apagarRegistro,
 } from '../services/registrosService';
 import { colors, spacing, radius, typography } from '../theme/colors';
@@ -35,7 +35,7 @@ export default function RegistrosScreen({ navigation }: any) {
     }
 
     function enviar(uri: string) {
-        compartilharRegistro(uri).catch((erro) => {
+        compartilharRegistros([uri]).catch((erro) => {
             console.log('Erro ao enviar:', erro);
             Alert.alert('Envio', 'Não foi possível enviar agora. Tente novamente.');
         });
@@ -102,7 +102,7 @@ export default function RegistrosScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    lista: { padding: spacing.lg },
+    lista: { padding: spacing.lg, paddingBottom: 88 },
     aviso: { marginVertical: spacing.md },
     vazio: { ...typography.subtitle, textAlign: 'center', marginTop: spacing.xl },
     item: {

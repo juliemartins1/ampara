@@ -8,14 +8,13 @@ import {
     TextInput,
     TouchableOpacity,
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '../services/firebaseConfig';
-import { sairDaConta } from '../services/usuariaService';
+import { confirmarSaida } from '../utils/confirmarSaida';
 import {
     ESPERA_REENVIO_S,
     confirmarCodigo,
@@ -100,19 +99,6 @@ export default function VerificarEmailScreen({ navigation }: any) {
         if (somenteNumeros.length === TAMANHO_CODIGO) verificar(somenteNumeros);
     }
 
-    function trocarConta() {
-        Alert.alert('Usar outra conta', 'Deseja sair e entrar com outro e-mail?', [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-                text: 'Sair',
-                onPress: async () => {
-                    await sairDaConta();
-                    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-                },
-            },
-        ]);
-    }
-
     return (
         <KeyboardAvoidingView
             style={styles.container}
@@ -188,7 +174,7 @@ export default function VerificarEmailScreen({ navigation }: any) {
                 )}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={trocarConta} style={{ marginTop: spacing.lg }}>
+            <TouchableOpacity onPress={() => confirmarSaida(navigation, 'Usar outra conta', 'Deseja sair e entrar com outro e-mail?')} style={{ marginTop: spacing.lg }}>
                 <Text style={styles.textoTrocar}>Usar outro e-mail</Text>
             </TouchableOpacity>
         </KeyboardAvoidingView>

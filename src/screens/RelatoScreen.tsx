@@ -9,6 +9,8 @@ import * as Print from 'expo-print';
 import TelaFormulario from '../components/TelaFormulario';
 import Campo from '../components/Campo';
 import BotaoPrimario from '../components/BotaoPrimario';
+import Chips from '../components/Chips';
+import { TIPOS_VIOLENCIA, TipoViolencia } from '../types/models';
 import {
     guardarRegistro,
     guardarRegistroBase64,
@@ -23,7 +25,16 @@ import { colors, spacing, radius, typography } from '../theme/colors';
 const escapar = (texto: string) =>
     texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
 
-async function montarHtml(quando: string, onde: string, descricao: string, fotos: string[], audios: string[]) {
+interface DadosRelato {
+    quando: string;
+    onde: string;
+    tipos: TipoViolencia[];
+    descricao: string;
+    fotos: string[];
+    audios: string[];
+}
+
+async function montarHtml({ quando, onde, tipos, descricao, fotos, audios }: DadosRelato) {
     const imagens = await Promise.all(
         fotos.map(async (uri) => `<img src="data:image/jpeg;base64,${await lerEmBase64(uri)}">`)
     );
@@ -38,6 +49,7 @@ async function montarHtml(quando: string, onde: string, descricao: string, fotos
         <small>Gerado pelo app Ampara em ${new Date().toLocaleString('pt-BR')}</small>
         <h2>Data e hora do fato</h2><p>${escapar(quando)}</p>
         <h2>Local</h2><p>${escapar(onde) || 'Não informado'}</p>
+        <h2>Tipo de violência (Lei nº 11.340/2006, art. 7º)</h2><p>${tipos.join(', ') || 'Não informado'}</p>
         <h2>O que aconteceu</h2><p>${escapar(descricao)}</p>
         ${audios.length ? `<h2>Áudios anexos (${audios.length})</h2>
             <p>${audios.map(descreverRegistro).join('<br>')}</p>
@@ -50,6 +62,7 @@ export default function RelatoScreen({ navigation }: any) {
     const [quando, setQuando] = useState(new Date().toLocaleString('pt-BR').slice(0, 17));
     const [onde, setOnde] = useState('');
     const [descricao, setDescricao] = useState('');
+    const [tipos, setTipos] = useState<TipoViolencia[]>([]);
     const [fotos, setFotos] = useState<string[]>([]);
     const [audios, setAudios] = useState<string[]>([]); // áudios do SOS disponíveis
     const [anexos, setAnexos] = useState<string[]>([]); // áudios marcados para este relato
@@ -63,9 +76,9 @@ export default function RelatoScreen({ navigation }: any) {
         listarRegistros().then((lista) => setAudios(lista.filter((uri) => tipoDoRegistro(uri) === 'audio')));
     }, []);
 
-    function alternarAnexo(uri: string) {
-        setAnexos((atuais) => (atuais.includes(uri) ? atuais.filter((x) => x !== uri) : [...atuais, uri]));
-    }
+    // Marca/desmarca um item numa lista (áudios anexos e tipos de violência)
+    const alternar = <T,>(item: T) => (atuais: T[]) =>
+        atuais.includes(item) ? atuais.filter((x) => x !== item) : [...atuais, item];
 
     // Envia o PDF e os áudios marcados juntos, para a mesma pessoa
     async function enviar(pdf: string) {
@@ -84,12 +97,18 @@ export default function RelatoScreen({ navigation }: any) {
     }
 
     async function tirarFoto() {
-        const foto = await camera.current?.takePictureAsync({ quality: 0.5, shutterSound: false });
-        if (foto) {
-            const uri = await guardarRegistro(foto.uri, 'foto', 'jpg');
-            setFotos((atuais) => [...atuais, uri]);
+        try {
+            const foto = await camera.current?.takePictureAsync({ quality: 0.5, shutterSound: false });
+            if (foto) {
+                const uri = await guardarRegistro(foto.uri, 'foto', 'jpg');
+                setFotos((atuais) => [...atuais, uri]);
+            }
+        } catch (erro) {
+            console.log('Erro ao tirar foto:', erro);
+            Alert.alert('Câmera', 'Não foi possível tirar a foto. Tente novamente.');
+        } finally {
+            setCameraAberta(false);
         }
-        setCameraAberta(false);
     }
 
     async function gerarPdf() {
@@ -101,7 +120,7 @@ export default function RelatoScreen({ navigation }: any) {
         try {
             // O PDF volta em base64 e é gravado direto na pasta interna
             const { base64 } = await Print.printToFileAsync({
-                html: await montarHtml(quando, onde, descricao, fotos, anexos),
+                html: await montarHtml({ quando, onde, tipos, descricao, fotos, audios: anexos }),
                 base64: true,
             });
             const pdf = await guardarRegistroBase64(base64!, 'relato', 'pdf');
@@ -121,6 +140,8 @@ export default function RelatoScreen({ navigation }: any) {
         <TelaFormulario emCartao>
             <Campo label="Data e hora do fato" value={quando} onChangeText={setQuando} />
             <Campo label="Local" value={onde} onChangeText={setOnde} placeholder="Endereço ou referência" />
+            <Text style={typography.label}>Tipo de violência</Text>
+            <Chips opcoes={TIPOS_VIOLENCIA} selecionados={tipos} aoTocar={(t) => setTipos(alternar(t))} />
             <Campo
                 label="O que aconteceu"
                 value={descricao}
@@ -155,7 +176,7 @@ export default function RelatoScreen({ navigation }: any) {
                     <TouchableOpacity
                         key={uri}
                         style={styles.audio}
-                        onPress={() => alternarAnexo(uri)}
+                        onPress={() => setAnexos(alternar(uri))}
                         accessibilityRole="checkbox"
                         accessibilityState={{ checked: anexos.includes(uri) }}
                     >

@@ -28,10 +28,7 @@ export const ROTULOS_CATEGORIA: Record<Categoria, string> = {
     dica: 'Dica',
 };
 
-export const CATEGORIAS = (Object.keys(ROTULOS_CATEGORIA) as Categoria[]).map((valor) => ({
-    valor,
-    rotulo: ROTULOS_CATEGORIA[valor],
-}));
+export const CATEGORIAS = Object.keys(ROTULOS_CATEGORIA) as Categoria[];
 
 export interface Publicacao {
     id: string;
@@ -42,4 +39,5 @@ export interface Publicacao {
 }
 
 // ---- Relato: formas de violência da Lei Maria da Penha (art. 7º, I a V) ----
-export const TIPOS_VIOLENCIA = ['Física', 'Psicológica', 'Sexual', 'Patrimonial', 'Moral'];
+export const TIPOS_VIOLENCIA = ['Física', 'Psicológica', 'Sexual', 'Patrimonial', 'Moral'] as const;
+export type TipoViolencia = (typeof TIPOS_VIOLENCIA)[number];

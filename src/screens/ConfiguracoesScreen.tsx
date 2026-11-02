@@ -11,7 +11,7 @@ import {
     Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { sairDaConta } from '../services/usuariaService';
+import { confirmarSaida } from '../utils/confirmarSaida';
 import { colors, spacing, radius, typography } from '../theme/colors';
 import {
     getDisguiseModeEnabled,
@@ -69,28 +69,6 @@ export default function ConfiguracoesScreen() {
         setDisfarceAtivo(novoValor);
         await setDisguiseModeEnabled(novoValor);
     };
-
-    async function handleSair() {
-        Alert.alert('Sair da conta', 'Tem certeza que deseja sair?', [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-                text: 'Sair',
-                style: 'destructive',
-                onPress: async () => {
-                    try {
-                        await sairDaConta();
-                        navigation.reset({
-                            index: 0,
-                            routes: [{ name: 'Login' }],
-                        });
-                    } catch (error) {
-                        console.error('Erro ao sair:', error);
-                        Alert.alert('Erro', 'Não foi possível sair da conta. Tente novamente.');
-                    }
-                },
-            },
-        ]);
-    }
 
     if (carregando) {
         return (
@@ -153,7 +131,7 @@ export default function ConfiguracoesScreen() {
 
                 <ItemNavegavel
                     label="Sair da conta"
-                    onPress={handleSair}
+                    onPress={() => confirmarSaida(navigation)}
                     destrutivo
                 />
 
@@ -196,7 +174,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 24,
-        paddingBottom: 40,
+        paddingBottom: 88, // espaço para o botão de saída rápida
     },
     titulo: {
         ...typography.title,

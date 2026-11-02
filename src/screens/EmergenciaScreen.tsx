@@ -1,7 +1,8 @@
 // src/screens/EmergenciaScreen.tsx
 // Aberta pelo botão SOS: pega a localização, abre o SMS para todos os
 // contatos de confiança, oferece WhatsApp/Telegram por contato e o 190.
-// Enquanto a tela está aberta, o áudio é gravado na pasta interna do app.
+// Enquanto a tela está aberta, o áudio é gravado na pasta interna do app
+// (e é salvo ao sair da tela por qualquer caminho, inclusive a saída rápida).
 import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
@@ -42,7 +43,7 @@ function Botao({ icone, texto, onPress }: BotaoProps) {
 }
 
 export default function EmergenciaScreen({ navigation }: any) {
-    const encerrarGravacao = useGravacaoSOS();
+    useGravacaoSOS();
     const [contatos, setContatos] = useState<Contato[]>([]);
     const [localizacao, setLocalizacao] = useState<string | null>(null); // null = buscando
     const [quando] = useState(() => new Date().toLocaleString('pt-BR').slice(0, 17)); // 15/10/2026, 20:30
@@ -66,18 +67,9 @@ export default function EmergenciaScreen({ navigation }: any) {
     useEffect(() => {
         if (mensagem && contatos.length && !smsAberto.current) {
             smsAberto.current = true;
-            enviarSMS(contatos, mensagem);
+            enviarSMS(contatos, mensagem).catch((erro) => console.log('Erro ao abrir o SMS:', erro));
         }
     }, [mensagem, contatos]);
-
-    async function encerrar() {
-        try {
-            await encerrarGravacao();
-        } catch (erro) {
-            console.log('Erro ao salvar áudio:', erro);
-        }
-        navigation.goBack();
-    }
 
     return (
         <SafeAreaView style={styles.tela}>
@@ -121,7 +113,7 @@ export default function EmergenciaScreen({ navigation }: any) {
 
                 <Botao icone="call" texto="Ligar 190" onPress={() => abrirLink('tel:190', 'Telefone')} />
 
-                <TouchableOpacity style={styles.encerrar} onPress={encerrar} accessibilityRole="button">
+                <TouchableOpacity style={styles.encerrar} onPress={() => navigation.goBack()} accessibilityRole="button">
                     <Text style={styles.encerrarTexto}>Encerrar</Text>
                 </TouchableOpacity>
             </ScrollView>
@@ -131,7 +123,7 @@ export default function EmergenciaScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
     tela: { flex: 1, backgroundColor: colors.emergency },
-    conteudo: { padding: spacing.lg, gap: spacing.sm },
+    conteudo: { padding: spacing.lg, paddingBottom: 88, gap: spacing.sm },
     icone: { alignSelf: 'center' },
     titulo: { fontSize: 24, fontWeight: '700', color: colors.white, textAlign: 'center' },
     texto: { fontSize: 15, color: colors.white, textAlign: 'center', marginVertical: spacing.sm },

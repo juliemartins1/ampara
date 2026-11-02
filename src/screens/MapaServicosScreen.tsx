@@ -3,7 +3,6 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
-    Linking,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -12,6 +11,7 @@ import {
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import * as Location from 'expo-location';
 import NetInfo from '@react-native-community/netinfo';
+import { abrirLink } from '../utils/abrirLink';
 
 import {
     servicosApoio,
@@ -841,24 +841,8 @@ export default function MapaServicosScreen() {
     }
 
 
-    /**
-     * Abre o discador do celular.
-     */
-    function ligarPara(
-        telefone: string
-    ) {
-
-        Linking.openURL(
-            `tel:${telefone}`
-        ).catch(() => {
-
-            Alert.alert(
-                'Erro',
-                'Não foi possível abrir o discador.'
-            );
-
-        });
-    }
+    // Abre o discador do celular (funciona sem internet)
+    const ligarPara = (telefone: string) => abrirLink(`tel:${telefone}`, 'Telefone');
 
 
     /**

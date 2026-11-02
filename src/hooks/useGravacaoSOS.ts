@@ -1,9 +1,11 @@
 // src/hooks/useGravacaoSOS.ts
-// Começa a gravar o áudio assim que a tela de emergência abre.
-// Retorna a função que para a gravação e guarda o arquivo na pasta interna.
+// Começa a gravar o áudio assim que a tela de emergência abre e, quando a tela
+// vai ser fechada (botão Encerrar, saída rápida para o disfarce...), para a
+// gravação e guarda o arquivo na pasta interna ANTES de a tela sumir.
 // Se o microfone for negado ou falhar, o SOS continua funcionando normalmente.
 import { useEffect, useRef } from 'react';
 import { PermissionsAndroid, Platform } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import {
     RecordingPresets,
     requestRecordingPermissionsAsync,
@@ -25,6 +27,7 @@ export async function pedirPermissoesGravacao() {
 }
 
 export function useGravacaoSOS() {
+    const navigation = useNavigation();
     const gravador = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
     const iniciou = useRef(false);
 
@@ -56,11 +59,22 @@ export function useGravacaoSOS() {
         })().catch((erro) => console.log('Gravação: erro ao iniciar', erro));
     }, [gravador]);
 
-    return async function encerrarGravacao() {
-        if (!iniciou.current) return;
-        iniciou.current = false;
-        await gravador.stop(); // também finaliza se o Android tiver pausado a gravação
-        if (gravador.uri) await guardarRegistro(gravador.uri, 'audio', 'm4a');
-        console.log('Gravação: salva');
-    };
+    // Segura a saída da tela até o áudio ser salvo e depois segue com a navegação.
+    // Antes, só o botão "Encerrar" salvava; qualquer outra saída perdia o áudio.
+    useEffect(
+        () =>
+            navigation.addListener('beforeRemove', (e) => {
+                if (!iniciou.current) return;
+                iniciou.current = false;
+                e.preventDefault();
+                (async () => {
+                    await gravador.stop(); // também finaliza se o Android tiver pausado a gravação
+                    if (gravador.uri) await guardarRegistro(gravador.uri, 'audio', 'm4a');
+                    console.log('Gravação: salva');
+                })()
+                    .catch((erro) => console.log('Gravação: erro ao salvar', erro))
+                    .finally(() => navigation.dispatch(e.data.action));
+            }),
+        [navigation, gravador]
+    );
 }

@@ -2,7 +2,7 @@
 // Serve para CRIAR e para EDITAR contato. Se a tela receber
 // route.params.contato, entra em modo edição.
 import React, { useLayoutEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { validarTelefone } from '../utils/validarTelefone';
 import { formatarTelefone, telefoneParaExibicao, telefoneParaSalvar } from '../utils/formatarTelefone';
 import { semErros } from '../utils/validacao';
@@ -10,8 +10,9 @@ import { Contato, criarContato, editarContato } from '../services/contatosServic
 import TelaFormulario from '../components/TelaFormulario';
 import Campo from '../components/Campo';
 import BotaoPrimario from '../components/BotaoPrimario';
+import Chips from '../components/Chips';
 import { formStyles } from '../theme/formStyle';
-import { colors, spacing, radius, typography } from '../theme/colors';
+import { typography } from '../theme/colors';
 import { ParentescoContato, OPCOES_PARENTESCO } from '../types/models';
 
 interface FormErrors {
@@ -111,23 +112,7 @@ export default function CadastroContatoConfiancaScreen({ navigation, route }: an
 
             <View style={formStyles.campo}>
                 <Text style={typography.label}>Relação com o contato</Text>
-                <View style={styles.chipsWrapper}>
-                    {OPCOES_PARENTESCO.map((opcao) => {
-                        const selecionado = parentesco === opcao;
-                        return (
-                            <TouchableOpacity
-                                key={opcao}
-                                style={[styles.chip, selecionado && styles.chipSelected]}
-                                onPress={() => setParentesco(opcao)}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={[styles.chipText, selecionado && styles.chipTextSelected]}>
-                                    {opcao}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
+                <Chips opcoes={OPCOES_PARENTESCO} selecionados={[parentesco]} aoTocar={setParentesco} />
                 {errors.parentesco ? (
                     <Text style={typography.errorText}>{errors.parentesco}</Text>
                 ) : null}
@@ -148,31 +133,3 @@ export default function CadastroContatoConfiancaScreen({ navigation, route }: an
     );
 }
 
-const styles = StyleSheet.create({
-    chipsWrapper: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: spacing.sm,
-        marginTop: spacing.xs,
-    },
-    chip: {
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.md,
-        borderRadius: radius.pill,
-        borderWidth: 1,
-        borderColor: colors.primaryLight,
-        backgroundColor: colors.primarySoft,
-    },
-    chipSelected: {
-        backgroundColor: colors.primary,
-        borderColor: colors.primary,
-    },
-    chipText: {
-        fontSize: 13,
-        color: colors.primaryDark,
-        fontWeight: '600',
-    },
-    chipTextSelected: {
-        color: colors.white,
-    },
-});

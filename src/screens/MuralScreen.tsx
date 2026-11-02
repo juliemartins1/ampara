@@ -11,11 +11,12 @@ import {
     ehModeradora,
     denunciarPublicacao,
     jaDenunciei,
+    paraPublicacao,
     MOTIVOS_DENUNCIA,
     MotivoDenuncia,
 } from '../services/moderacao';
-
-import { Publicacao, ROTULOS_CATEGORIA as ROTULOS } from '../types/models';
+import CartaoPublicacao from '../components/CartaoPublicacao';
+import { Publicacao } from '../types/models';
 
 // A partir de quantas denúncias a publicação some do mural até ser revisada
 const LIMITE_OCULTAR = 3;
@@ -81,13 +82,7 @@ export default function MuralScreen() {
             consulta,
             snapshot => {
                 const lista = snapshot.docs
-                    .map(doc => ({
-                        id: doc.id,
-                        texto: doc.data().texto,
-                        categoria: doc.data().categoria,
-                        criadaEm: doc.data().criadaEm ?? null,
-                        denuncias: doc.data().denuncias ?? 0,
-                    }))
+                    .map(paraPublicacao)
                     // esconde as muito denunciadas até a moderação revisar
                     .filter(p => p.denuncias < LIMITE_OCULTAR);
                 setPublicacoes(lista);
@@ -142,12 +137,10 @@ export default function MuralScreen() {
                     contentContainerStyle={styles.lista}
                     ListEmptyComponent={<Text style={styles.vazio}>Ainda não há publicações.</Text>}
                     renderItem={({ item }) => (
-                        <View style={styles.card}>
-                            <View style={styles.topoCard}>
-                                <Text style={styles.categoria}>{ROTULOS[item.categoria]}</Text>
-                                <Text style={styles.data}>{formatarData(item.criadaEm)}</Text>
-                            </View>
-                            <Text style={styles.texto}>{item.texto}</Text>
+                        <CartaoPublicacao
+                            publicacao={item}
+                            info={<Text style={styles.data}>{formatarData(item.criadaEm)}</Text>}
+                        >
                             <View style={styles.rodapeCard}>
                                 <Text style={styles.autora}>Anônima</Text>
 
@@ -177,7 +170,7 @@ export default function MuralScreen() {
                                     </TouchableOpacity>
                                 )}
                             </View>
-                        </View>
+                        </CartaoPublicacao>
                     )}
                 />
             )}
@@ -216,26 +209,7 @@ const styles = StyleSheet.create({
     centro: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
     lista: { padding: spacing.md, gap: 12, paddingBottom: 96 },
     vazio: { ...typography.subtitle, textAlign: 'center', marginTop: 40 },
-    card: {
-        backgroundColor: colors.surface,
-        borderRadius: radius.md,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    topoCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
-    categoria: {
-        color: colors.primaryDark,
-        backgroundColor: colors.primarySoft,
-        fontWeight: '700',
-        fontSize: 12,
-        paddingVertical: 3,
-        paddingHorizontal: 10,
-        borderRadius: radius.pill,
-        overflow: 'hidden',
-    },
     data: { ...typography.helper },
-    texto: { fontSize: 15, color: colors.textPrimary, lineHeight: 21 },
     rodapeCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
     autora: { ...typography.helper, fontStyle: 'italic' },
     botaoDenunciar: { flexDirection: 'row', alignItems: 'center', gap: 4 },

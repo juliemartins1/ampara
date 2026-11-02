@@ -1,4 +1,4 @@
-// src/services/verificacaoEmailService.ts
+// src/services/verificarEmailService.ts
 // Verificação de e-mail por CÓDIGO de 6 dígitos.
 // 1. Gera um código aleatório e salva no Firestore só o HASH dele (SHA-256),
 //    com validade de 10 min e limite de tentativas.
@@ -6,6 +6,7 @@
 // 3. Compara o hash do código digitado com o salvo. Se bater,
 //    marca usuarias/{uid}.emailVerificado = true.
 import * as Crypto from 'expo-crypto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { send } from '@emailjs/react-native';
 import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebaseConfig';
@@ -34,10 +35,21 @@ function refVerificacao() {
     return doc(db, 'verificacoesEmail', uidAtual());
 }
 
+// Cópia local de "e-mail verificado" (guarda o uid). Sem internet o Firestore não
+// responde, e a usuária já verificada não pode ficar presa na tela do código (sem o SOS).
+export const CHAVE_EMAIL_VERIFICADO = '@ampara_email_verificado';
+
 /** A usuária logada já confirmou o e-mail? Usado no login e ao abrir o app. */
 export async function emailFoiVerificado(): Promise<boolean> {
-    const snap = await getDoc(doc(db, 'usuarias', uidAtual()));
-    return snap.data()?.emailVerificado === true;
+    const uid = uidAtual();
+    try {
+        const snap = await getDoc(doc(db, 'usuarias', uid));
+        const verificado = snap.data()?.emailVerificado === true;
+        if (verificado) AsyncStorage.setItem(CHAVE_EMAIL_VERIFICADO, uid).catch(() => { });
+        return verificado;
+    } catch {
+        return (await AsyncStorage.getItem(CHAVE_EMAIL_VERIFICADO).catch(() => null)) === uid;
+    }
 }
 
 /** Código de 6 dígitos com gerador criptográfico (não usa Math.random). */
@@ -102,6 +114,7 @@ export async function confirmarCodigo(codigoDigitado: string): Promise<Resultado
 
     // Deu certo: marca como verificada e apaga o código usado
     await setDoc(doc(db, 'usuarias', uidAtual()), { emailVerificado: true }, { merge: true });
+    await AsyncStorage.setItem(CHAVE_EMAIL_VERIFICADO, uidAtual()).catch(() => { });
     await deleteDoc(ref);
     return { ok: true };
 }

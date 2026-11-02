@@ -97,7 +97,3 @@ export async function compartilharRegistros(uris: string[]) {
         failOnCancel: false,
     });
 }
-
-export function compartilharRegistro(uri: string) {
-    return compartilharRegistros([uri]);
-}

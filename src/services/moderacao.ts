@@ -1,5 +1,25 @@
-import { doc, getDoc, writeBatch, increment, serverTimestamp } from 'firebase/firestore';
+import {
+    doc,
+    getDoc,
+    writeBatch,
+    increment,
+    serverTimestamp,
+    QueryDocumentSnapshot,
+} from 'firebase/firestore';
 import { auth, db } from './firebaseConfig';
+import { Publicacao } from '../types/models';
+
+// Documento do Firestore -> Publicacao (usado no mural e na moderação)
+export function paraPublicacao(d: QueryDocumentSnapshot): Publicacao {
+    const dados = d.data();
+    return {
+        id: d.id,
+        texto: dados.texto,
+        categoria: dados.categoria,
+        criadaEm: dados.criadaEm ?? null,
+        denuncias: dados.denuncias ?? 0,
+    };
+}
 
 export type MotivoDenuncia = 'dados_pessoais' | 'ofensivo' | 'falso' | 'outro';
 

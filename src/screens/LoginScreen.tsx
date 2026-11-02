@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Text, TouchableOpacity, Alert } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebaseConfig';
-import { emailFoiVerificado } from '../services/verificarEmailService';
+import { rotaDaSessao } from '../services/usuariaService';
 import TelaFormulario from '../components/TelaFormulario';
 import Campo from '../components/Campo';
 import BotaoPrimario from '../components/BotaoPrimario';
@@ -38,13 +38,8 @@ export default function LoginScreen({ navigation }: any) {
         try {
             await signInWithEmailAndPassword(auth, email.trim(), senha);
 
-            // Só entra na Home quem já confirmou o código do e-mail.
-            // Quem não confirmou vai para a tela do código.
-            const verificado = await emailFoiVerificado();
-            navigation.reset({
-                index: 0,
-                routes: [{ name: verificado ? 'Home' : 'VerificarEmail' }],
-            });
+            // Só entra na Home quem já confirmou o código do e-mail
+            navigation.reset({ index: 0, routes: [{ name: await rotaDaSessao() }] });
         } catch (error: any) {
             console.error('Erro ao entrar:', error);
             Alert.alert('Erro ao entrar', mensagemErroAuth(error?.code, 'login'));
