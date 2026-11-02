@@ -75,7 +75,9 @@ export default function RelatoScreen({ navigation }: any) {
     const camera = useRef<CameraView>(null);
 
     useEffect(() => {
-        listarRegistros().then((lista) => setAudios(lista.filter((uri) => tipoDoRegistro(uri) === 'audio')));
+        listarRegistros()
+            .then((lista) => setAudios(lista.filter((uri) => tipoDoRegistro(uri) === 'audio')))
+            .catch(() => setAudios([]));
     }, []);
 
     // Marca/desmarca um item numa lista (áudios anexos e tipos de violência)

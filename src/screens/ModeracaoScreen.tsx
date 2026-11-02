@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { ehModeradora, paraPublicacao } from '../services/moderacao';
 import { colors, spacing, radius, typography } from '../theme/colors';
@@ -8,6 +8,7 @@ import CartaoPublicacao from '../components/CartaoPublicacao';
 import { Publicacao } from '../types/models';
 
 type Aba = 'pendentes' | 'denunciadas';
+const LIMITE_LISTA = 50; // a moderação trabalha nas 50 primeiras; as próximas aparecem ao resolver estas
 
 export default function ModeracaoScreen() {
     const [autorizada, setAutorizada] = useState<boolean | null>(null);
@@ -26,12 +27,13 @@ export default function ModeracaoScreen() {
 
         const consulta =
             aba === 'pendentes'
-                ? query(collection(db, 'publicacoes'), where('status', '==', 'pendente'), orderBy('criadaEm', 'asc'))
+                ? query(collection(db, 'publicacoes'), where('status', '==', 'pendente'), orderBy('criadaEm', 'asc'), limit(LIMITE_LISTA))
                 : query(
                     collection(db, 'publicacoes'),
                     where('status', '==', 'aprovada'),
                     where('denuncias', '>', 0),
-                    orderBy('denuncias', 'desc') // mais denunciadas primeiro
+                    orderBy('denuncias', 'desc'), // mais denunciadas primeiro
+                    limit(LIMITE_LISTA)
                 );
 
         const cancelar = onSnapshot(

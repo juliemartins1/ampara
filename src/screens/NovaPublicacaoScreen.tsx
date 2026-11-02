@@ -53,12 +53,14 @@ export default function NovaPublicacaoScreen() {
                 denuncias: 0,
             });
             batch.set(doc(db, 'publicacoes', ref.id, 'privado', 'autoria'), { uid: usuaria.uid });
+            // Hora da publicação: as regras só aceitam uma a cada 5 minutos
+            batch.update(doc(db, 'usuarias', usuaria.uid), { ultimaPublicacao: serverTimestamp() });
             await batch.commit();
             Alert.alert('Publicação enviada', 'Ela será revisada antes de aparecer no mural.');
             navigation.goBack();
         } catch (erro) {
             console.error(erro);
-            Alert.alert('Erro', 'Não foi possível enviar. Tente novamente.');
+            Alert.alert('Erro', 'Não foi possível enviar. Se você publicou há pouco, aguarde 5 minutos e tente de novo.');
         } finally {
             setEnviando(false);
         }

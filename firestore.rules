@@ -13,23 +13,54 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/moderadoras/$(request.auth.uid));
     }
 
+    // Telefone salvo: 55 + DDD + 8 ou 9 dígitos
+    function telefoneValido(t) {
+      return t is string && t.matches('^55[0-9]{10,11}$');
+    }
+
+    function textoAte(v, max) {
+      return v is string && v.size() > 0 && v.size() <= max;
+    }
+
     match /usuarias/{usuariaId} {
+      // Só os campos que o app usa, com tamanho limitado (antes dava para gravar
+      // qualquer coisa pelo SDK). emailVerificado só existe nas contas antigas.
+      function perfilValido(d) {
+        return d.keys().hasOnly(['nome', 'email', 'telefone', 'bairro', 'createdAt',
+                                 'updatedAt', 'ultimaPublicacao', 'emailVerificado'])
+          && textoAte(d.nome, 100)
+          && telefoneValido(d.telefone)
+          && textoAte(d.bairro, 60);
+      }
+
       allow read, delete: if request.auth != null
                           && request.auth.uid == usuariaId;
 
       // O e-mail salvo tem que ser o mesmo do login
       allow create: if request.auth != null
                     && request.auth.uid == usuariaId
-                    && request.resource.data.email == request.auth.token.email;
+                    && request.resource.data.email == request.auth.token.email
+                    && perfilValido(request.resource.data);
 
-      // O e-mail é o login: não pode ser trocado por gravação no banco
+      // O e-mail é o login: não pode ser trocado por gravação no banco.
+      // ultimaPublicacao só pode receber a hora do servidor (é o que limita a
+      // frequência de publicações, então não pode ser "voltada para trás").
       allow update: if request.auth != null
                     && request.auth.uid == usuariaId
-                    && request.resource.data.get('email', null) == resource.data.get('email', null);
+                    && request.resource.data.get('email', null) == resource.data.get('email', null)
+                    && perfilValido(request.resource.data)
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['ultimaPublicacao'])
+                        || request.resource.data.ultimaPublicacao == request.time);
 
       match /contatosConfianca/{contatoId} {
-        allow read, write: if request.auth != null
+        allow read, delete: if request.auth != null
                             && request.auth.uid == usuariaId;
+        allow create, update: if request.auth != null
+                              && request.auth.uid == usuariaId
+                              && request.resource.data.keys().hasOnly(['nome', 'telefone', 'parentesco', 'createdAt', 'updatedAt'])
+                              && textoAte(request.resource.data.nome, 100)
+                              && telefoneValido(request.resource.data.telefone)
+                              && request.resource.data.parentesco in ['Familiar', 'Amigo(a)', 'Vizinho(a)', 'Colega de trabalho', 'Outro'];
       }
     }
 
@@ -46,9 +77,15 @@ service cloud.firestore {
     match /publicacoes/{publicacaoId} {
       // Só conta verificada publica. A publicação NÃO guarda quem escreveu:
       // a autoria é gravada junto (mesmo batch) em privado/autoria.
+      // Limite de frequência: uma publicação a cada 5 minutos por usuária. A mesma
+      // operação grava usuarias/{uid}.ultimaPublicacao com a hora do servidor.
       allow create: if verificada()
         && request.resource.data.keys().hasOnly(['texto', 'categoria', 'status', 'criadaEm', 'denuncias'])
         && existsAfter(/databases/$(database)/documents/publicacoes/$(publicacaoId)/privado/autoria)
+        && getAfter(/databases/$(database)/documents/usuarias/$(request.auth.uid)).data.ultimaPublicacao == request.time
+        && (!('ultimaPublicacao' in get(/databases/$(database)/documents/usuarias/$(request.auth.uid)).data)
+            || request.time > get(/databases/$(database)/documents/usuarias/$(request.auth.uid)).data.ultimaPublicacao
+                              + duration.value(5, 'm'))
         && request.resource.data.status == 'pendente'
         && request.resource.data.texto is string
         && request.resource.data.texto.size() > 0

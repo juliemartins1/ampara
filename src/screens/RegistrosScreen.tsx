@@ -38,7 +38,7 @@ export default function RegistrosScreen({ navigation, route }: any) {
     // Recarrega ao voltar da tela de relato
     useFocusEffect(
         useCallback(() => {
-            listarRegistros().then(setRegistros);
+            listarRegistros().then(setRegistros).catch(() => setRegistros([]));
         }, [])
     );
 
@@ -161,7 +161,12 @@ export default function RegistrosScreen({ navigation, route }: any) {
                         <Image source={{ uri: aberto.foto }} style={styles.fotoCheia} resizeMode="contain" />
                     )}
                     {aberto && 'html' in aberto && (
-                        <WebView source={{ html: aberto.html }} originWhitelist={['*']} style={styles.fotoCheia} />
+                        <WebView
+                            source={{ html: aberto.html }}
+                            originWhitelist={['*']}
+                            javaScriptEnabled={false} // o relato é só texto e imagens
+                            style={styles.fotoCheia}
+                        />
                     )}
                     <TouchableOpacity
                         style={styles.fecharFoto}

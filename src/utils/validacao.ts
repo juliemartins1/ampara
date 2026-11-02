@@ -2,7 +2,7 @@
 
 const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const TAMANHO_MINIMO_SENHA = 6;
+export const TAMANHO_MINIMO_SENHA = 8;
 
 /** Retorna a mensagem de erro do e-mail, ou undefined se estiver válido. */
 export function validarEmail(valor: string): string | undefined {

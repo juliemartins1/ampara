@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -42,6 +43,9 @@ function irParaDisfarce() {
 }
 
 export default function App() {
+  // Bloqueia capturas de tela e deixa em branco a miniatura em "Apps recentes",
+  // que mostraria a tela real do app mesmo com o disfarce
+  usePreventScreenCapture();
   const [rotaInicial, setRotaInicial] = useState<string | null>(null);
   const [rotaAtual, setRotaAtual] = useState<string | undefined>();
 

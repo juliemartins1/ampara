@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { colors, spacing, radius, typography } from '../theme/colors';
 import {
@@ -20,6 +20,9 @@ import { Publicacao } from '../types/models';
 
 // A partir de quantas denúncias a publicação some do mural até ser revisada
 const LIMITE_OCULTAR = 3;
+// Quantas publicações (as mais recentes) o mural carrega: sem limite, cada
+// abertura lia o mural inteiro e gastava a cota gratuita do Firestore
+const LIMITE_MURAL = 30;
 
 function formatarData(data: Timestamp | null) {
     if (!data) return '';
@@ -34,25 +37,23 @@ export default function MuralScreen() {
     const [podeModerar, setPodeModerar] = useState(false);
     const [denunciando, setDenunciando] = useState<string | null>(null); // id da publicação no modal
 
-    // Publicações que esta usuária já denunciou (o botão vira "Denunciada")
+    // Publicações que esta usuária denunciou nesta visita (o botão vira "Denunciada")
     const [denunciadas, setDenunciadas] = useState<Set<string>>(new Set());
-    // Ids já conferidos no banco, para não repetir a consulta a cada atualização
-    const conferidas = useRef<Set<string>>(new Set());
 
     function marcarComoDenunciada(id: string) {
         setDenunciadas(atual => new Set(atual).add(id));
     }
 
-    // Para cada publicação nova na tela, confere uma única vez se ela já foi denunciada
-    useEffect(() => {
-        const novas = publicacoes.filter(p => !conferidas.current.has(p.id));
-        novas.forEach(p => {
-            conferidas.current.add(p.id);
-            jaDenunciei(p.id)
-                .then(sim => { if (sim) marcarComoDenunciada(p.id); })
-                .catch(() => { /* sem conexão: o botão continua disponível */ });
-        });
-    }, [publicacoes]);
+    // Confere no banco só quando ela toca em "Denunciar" (antes era uma leitura
+    // por publicação, toda vez que o mural abria)
+    async function abrirDenuncia(id: string) {
+        if (await jaDenunciei(id).catch(() => false)) {
+            marcarComoDenunciada(id);
+            Alert.alert('Denúncia já registrada', 'Você já denunciou esta publicação.');
+        } else {
+            setDenunciando(id);
+        }
+    }
 
     useEffect(() => {
         ehModeradora().then(setPodeModerar);
@@ -75,7 +76,8 @@ export default function MuralScreen() {
         const consulta = query(
             collection(db, 'publicacoes'),
             where('status', '==', 'aprovada'),
-            orderBy('criadaEm', 'desc')
+            orderBy('criadaEm', 'desc'),
+            limit(LIMITE_MURAL)
         );
 
         const cancelar = onSnapshot(
@@ -107,14 +109,9 @@ export default function MuralScreen() {
             marcarComoDenunciada(id);
             Alert.alert('Denúncia enviada', 'Obrigada. A moderação vai revisar esta publicação.');
         } catch (e: any) {
-            if (e?.message === 'ja-denunciou') {
-                marcarComoDenunciada(id);
-                Alert.alert('Denúncia já registrada', 'Você já denunciou esta publicação.');
-            } else {
-                // Mostra o código no terminal para facilitar achar a causa
-                console.error('[mural] erro ao denunciar:', e?.code, e?.message);
-                Alert.alert('Erro', 'Não foi possível enviar a denúncia. Tente novamente.');
-            }
+            // Mostra o código no terminal para facilitar achar a causa
+            console.error('[mural] erro ao denunciar:', e?.code, e?.message);
+            Alert.alert('Erro', 'Não foi possível enviar a denúncia. Tente novamente.');
         }
     }
 
@@ -161,7 +158,7 @@ export default function MuralScreen() {
                                 ) : (
                                     <TouchableOpacity
                                         style={styles.botaoDenunciar}
-                                        onPress={() => setDenunciando(item.id)}
+                                        onPress={() => abrirDenuncia(item.id)}
                                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                         accessibilityLabel="Denunciar publicação"
                                     >

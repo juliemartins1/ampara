@@ -131,7 +131,8 @@ export async function obterLocalizacao(): Promise<string> {
 }
 
 export function montarMensagem(localizacao: string, quando: string) {
-    return `SOS - Preciso de ajuda! Enviado pelo app Ampara em ${quando}.${localizacao}`;
+    // Sem o nome do app: o SMS fica salvo no celular e o agressor pode ler
+    return `SOS - Preciso de ajuda! ${quando}.${localizacao}`;
 }
 
 export async function enviarSMS(contatos: Contato[], mensagem: string) {

@@ -16,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { rotaDaSessao } from '../services/usuariaService';
+import { lerCodigoDisfarce } from '../services/disguiseMode';
+import CampoCodigo from '../components/CampoCodigo';
 import { spacing, radius } from '../theme/colors';
 
 type Nota = {
@@ -32,6 +34,7 @@ export default function BlocoDeNotasScreen() {
     const navigation = useNavigation<any>();
     const [notas, setNotas] = useState<Nota[]>([]);
     const [notaSelecionada, setNotaSelecionada] = useState<Nota | null>(null);
+    const [codigoSalvo, setCodigoSalvo] = useState<string | null>(null); // pedindo o código se != null
 
     useEffect(() => {
         AsyncStorage.getItem(NOTAS_STORAGE_KEY)
@@ -55,8 +58,22 @@ export default function BlocoDeNotasScreen() {
     };
     // Gesto secreto: sai do disfarce para a tela da sessão
     // (Login, Verificar e-mail ou Home — a mesma regra de quando o app abre)
-    const sairDoDisfarce = async () => {
+    const entrarNoApp = async () => {
         navigation.reset({ index: 0, routes: [{ name: await rotaDaSessao() }] });
+    };
+
+    // Se ela definiu um código nas Configurações, ele é pedido antes de entrar
+    const sairDoDisfarce = async () => {
+        const codigo = await lerCodigoDisfarce().catch(() => null);
+        if (codigo) setCodigoSalvo(codigo);
+        else entrarNoApp();
+    };
+
+    // Código errado: só fecha, sem mensagem (não denuncia que existe algo escondido)
+    const conferirCodigo = (digitado: string) => {
+        const certo = digitado === codigoSalvo;
+        setCodigoSalvo(null);
+        if (certo) entrarNoApp();
     };
 
     const criarNovaNota = () => {
@@ -175,6 +192,13 @@ export default function BlocoDeNotasScreen() {
             <TouchableOpacity style={styles.botaoNova} onPress={criarNovaNota}>
                 <Text style={styles.botaoNovaTexto}>+</Text>
             </TouchableOpacity>
+
+            <CampoCodigo
+                visivel={codigoSalvo !== null}
+                titulo="Código"
+                aoConfirmar={conferirCodigo}
+                aoCancelar={() => setCodigoSalvo(null)}
+            />
         </SafeAreaView>
     );
 }

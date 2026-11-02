@@ -91,6 +91,9 @@ export default function EmergenciaScreen({ navigation }: any) {
                         <Text style={styles.texto}>
                             O SMS foi aberto para seus contatos. Se preferir, envie também por:
                         </Text>
+                        <Text style={styles.dica}>
+                            Quando estiver em segurança, apague a conversa no app de mensagens.
+                        </Text>
                         {contatos.map((c) => {
                             const nome = c.nome.split(' ')[0];
                             return (
@@ -127,6 +130,7 @@ const styles = StyleSheet.create({
     icone: { alignSelf: 'center' },
     titulo: { fontSize: 24, fontWeight: '700', color: colors.white, textAlign: 'center' },
     texto: { fontSize: 15, color: colors.white, textAlign: 'center', marginVertical: spacing.sm },
+    dica: { fontSize: 13, color: colors.white, textAlign: 'center', opacity: 0.85, marginBottom: spacing.sm },
     carregando: { alignItems: 'center', marginVertical: spacing.md },
     botao: {
         flexDirection: 'row',

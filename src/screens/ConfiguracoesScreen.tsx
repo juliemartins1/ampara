@@ -16,7 +16,11 @@ import { colors, spacing, radius, typography } from '../theme/colors';
 import {
     getDisguiseModeEnabled,
     setDisguiseModeEnabled,
+    lerCodigoDisfarce,
+    salvarCodigoDisfarce,
+    removerCodigoDisfarce,
 } from '../services/disguiseMode';
+import CampoCodigo from '../components/CampoCodigo';
 
 interface SecaoProps {
     titulo: string;
@@ -57,13 +61,49 @@ export default function ConfiguracoesScreen() {
     const navigation = useNavigation<any>();
     const [disfarceAtivo, setDisfarceAtivo] = useState(true);
     const [carregando, setCarregando] = useState(true);
+    const [temCodigo, setTemCodigo] = useState(false);
+    // Definindo o código: primeiro digita, depois repete para confirmar
+    const [etapaCodigo, setEtapaCodigo] = useState<'novo' | 'repetir' | null>(null);
+    const [codigoNovo, setCodigoNovo] = useState('');
 
     useEffect(() => {
-        getDisguiseModeEnabled().then((valor) => {
-            setDisfarceAtivo(valor);
-            setCarregando(false);
-        });
+        Promise.all([getDisguiseModeEnabled(), lerCodigoDisfarce().catch(() => null)])
+            .then(([disfarce, codigo]) => {
+                setDisfarceAtivo(disfarce);
+                setTemCodigo(!!codigo);
+            })
+            .finally(() => setCarregando(false));
     }, []);
+
+    function configurarCodigo() {
+        if (!temCodigo) return setEtapaCodigo('novo');
+        Alert.alert('Código do disfarce', 'O que deseja fazer?', [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+                text: 'Remover',
+                style: 'destructive',
+                onPress: () => removerCodigoDisfarce().then(() => setTemCodigo(false)),
+            },
+            { text: 'Trocar', onPress: () => setEtapaCodigo('novo') },
+        ]);
+    }
+
+    async function receberCodigo(codigo: string) {
+        if (etapaCodigo === 'novo') {
+            setCodigoNovo(codigo);
+            return setEtapaCodigo('repetir');
+        }
+        setEtapaCodigo(null);
+        if (codigo !== codigoNovo) {
+            return Alert.alert('Código', 'Os códigos não conferem. Tente de novo.');
+        }
+        await salvarCodigoDisfarce(codigo);
+        setTemCodigo(true);
+        Alert.alert(
+            'Código salvo',
+            'Ele será pedido depois do toque longo no bloco de notas. Guarde bem: sem ele, só reinstalando o app (e os registros deste celular se perdem).'
+        );
+    }
 
     const alternarDisfarce = async (novoValor: boolean) => {
         setDisfarceAtivo(novoValor);
@@ -102,6 +142,18 @@ export default function ConfiguracoesScreen() {
                         thumbColor={colors.white}
                     />
                 </View>
+
+                <View style={styles.divisor} />
+
+                <ItemNavegavel
+                    label="Código para sair do disfarce"
+                    descricao={
+                        temCodigo
+                            ? 'Ativado: é pedido depois do toque longo no bloco de notas'
+                            : 'Desativado: recomendado se alguém conhece o PIN do seu celular'
+                    }
+                    onPress={configurarCodigo}
+                />
 
                 <View style={styles.divisor} />
 
@@ -157,6 +209,13 @@ export default function ConfiguracoesScreen() {
                     }
                 />
             </Secao>
+
+            <CampoCodigo
+                visivel={etapaCodigo !== null}
+                titulo={etapaCodigo === 'novo' ? 'Crie um código de 4 a 6 números' : 'Repita o código'}
+                aoConfirmar={receberCodigo}
+                aoCancelar={() => setEtapaCodigo(null)}
+            />
         </ScrollView>
     );
 }

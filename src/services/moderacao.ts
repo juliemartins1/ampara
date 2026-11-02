@@ -58,9 +58,7 @@ export async function denunciarPublicacao(publicacaoId: string, motivo: MotivoDe
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('sem-sessao');
 
-    // Confere antes, para não confundir "já denunciou" com outro erro de permissão
-    if (await jaDenunciei(publicacaoId)) throw new Error('ja-denunciou');
-
+    // "Já denunciou" é conferido na tela, ao tocar em Denunciar (as regras também barram)
     const batch = writeBatch(db);
     batch.set(doc(db, 'publicacoes', publicacaoId, 'denuncias', uid), {
         motivo,
