@@ -32,6 +32,8 @@ export default function CampoCodigo({ visivel, titulo, aoConfirmar, aoCancelar }
                         onChangeText={(t) => setCodigo(t.replace(/\D/g, '').slice(0, 6))}
                         keyboardType="number-pad"
                         secureTextEntry
+                        selectionColor="#3A3A3A"
+                        cursorColor="#3A3A3A"
                         autoFocus
                         maxLength={6}
                     />
@@ -61,6 +63,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#CCC',
         fontSize: 22,
+        color: '#3A3A3A', // sem cor explícita, o Android em tema escuro desenha os pontos em branco
         letterSpacing: 8,
         paddingVertical: spacing.sm,
         textAlign: 'center',
